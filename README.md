@@ -4,14 +4,14 @@ Ganache network provider plugin for Ape. Ganache is a tool for creating a local 
 
 ## Dependencies
 
-* `python3 <https://www.python.org/downloads>`_ version 3.7 or greater, python3-dev
-* Node.js, NPM, and Ganache. See Ganache's `Installation <https://github.com/trufflesuite/ganache#command-line-use>`_ documentation for steps.
+* [python3](https://www.python.org/downloads) version 3.7.2 or greater, python3-dev
+* Node.js, NPM, and Ganache. See Ganache's [Installation](https://github.com/trufflesuite/ganache#command-line-use>) documentation for steps.
 
 ## Installation
 
 ### via ``pip``
 
-You can install the latest release via `pip <https://pypi.org/project/pip/>`_:
+You can install the latest release via [pip](https://pypi.org/project/pip/):
 
 ```bash
 pip install ape-ganache
@@ -19,7 +19,7 @@ pip install ape-ganache
 
 ### via ``setuptools``
 
-You can clone the repository and use `setuptools <https://github.com/pypa/setuptools>`_ for the most up-to-date version:
+You can clone the repository and use [setuptools](https://github.com/pypa/setuptools) for the most up-to-date version:
 
 ```bash
 git clone https://github.com/ApeWorX/ape-ganache.git
