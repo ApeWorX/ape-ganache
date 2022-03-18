@@ -81,7 +81,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
     @property
     def process_name(self) -> str:
-        return "Ganache node"
+        return "Ganache"
 
     @cached_property
     def ganache_bin(self) -> str:
