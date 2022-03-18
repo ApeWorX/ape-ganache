@@ -97,7 +97,7 @@ def test_set_block_gas_limit(ganache_connected):
     assert ganache_connected.set_block_gas_limit(gas_limit) is True
 
 
-@pytest.mark.xfail(reason="Ganache doesn't show updated timestamp on pending block")
+@pytest.mark.xfail(reason="https://github.com/trufflesuite/ganache/issues/772")
 def test_set_timestamp(ganache_connected):
     start_time = ganache_connected.get_block("pending").timestamp
     ganache_connected.set_timestamp(start_time + 5)  # Increase by 5 seconds
