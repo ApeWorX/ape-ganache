@@ -68,7 +68,7 @@ jobs:
               node-version: '14'
 
         - name: Install Node Dependencies
-          run: npm install --globa ganache
+          run: npm install --global ganache
 
         - name: Run Tests
           run: pytest -m "not fuzzing"
