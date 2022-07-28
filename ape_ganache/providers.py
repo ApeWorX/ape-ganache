@@ -234,14 +234,14 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
         return self._make_request("evm_revert", [snapshot_id])
 
-    def estimate_gas_cost(self, txn: TransactionAPI) -> int:
+    def estimate_gas_cost(self, txn: TransactionAPI, **kwargs) -> int:
         """
         Generates and returns an estimate of how much gas is necessary
         to allow the transaction to complete.
         The transaction will not be added to the blockchain.
         """
         try:
-            return super().estimate_gas_cost(txn)
+            return super().estimate_gas_cost(txn, **kwargs)
         except ValueError as err:
             tx_error = _get_vm_error(err)
 
