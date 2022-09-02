@@ -42,14 +42,16 @@ This network provider takes additional Ganache-specific configuration options. T
 
 ```yaml
 ganache:
-  port: 8555
+  server:
+    port: 8555
 ```
 
 To select a random port, use a value of "auto":
 
 ```yaml
 ganache:
-  port: auto
+  server:
+    port: auto
 ```
 
 This is useful for multiprocessing and starting up multiple providers.

@@ -208,8 +208,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             self.ganache_bin,
             "--server.port",
             str(self.port),
-            "--wallet.seed",
+            "--wallet.mnemonic",
             '"' + self.mnemonic + '"',
+            "--wallet.hdPath",
+            "m/44'/60'/0'",
             "--wallet.totalAccounts",
             str(self.number_of_accounts),
         ]
