@@ -11,7 +11,7 @@ cd ape-ganache
 python3 -m venv venv
 source venv/bin/activate
 
-# install brownie into the virtual environment
+# install ape-ganache into the virtual environment
 python setup.py install
 
 # install the developer dependencies (-e is interactive mode)

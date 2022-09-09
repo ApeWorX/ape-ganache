@@ -1,10 +1,10 @@
-# ape-ganache
+# Quick Start
 
 Ganache network provider plugin for Ape. Ganache is a tool for creating a local blockchain for fast Ethereum development.
 
 ## Dependencies
 
-* [python3](https://www.python.org/downloads) version 3.7.2 or greater, python3-dev
+* [python3](https://www.python.org/downloads) version 3.8 or greater, python3-dev
 * Node.js, NPM, and Ganache. See Ganache's [Installation](https://github.com/trufflesuite/ganache#command-line-use>) documentation for steps.
 
 ## Installation
@@ -79,12 +79,3 @@ Otherwise, it defaults to the default mainnet provider plugin. You can also spec
 ```bash
 ape plugins add infura
 ```
-
-## Development
-
-Please see the [contributing guide](CONTRIBUTING.md) to learn more how to contribute to this project.
-Comments, questions, criticisms and pull requests are welcomed.
-
-## License
-
-This project is licensed under the [Apache 2.0](LICENSE).

@@ -2,9 +2,8 @@ import random
 import shutil
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Literal, Optional, Union, cast
 
-from ape._compat import Literal
 from ape.api import (
     PluginConfig,
     ProviderAPI,
