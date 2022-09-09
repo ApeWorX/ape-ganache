@@ -79,8 +79,3 @@ Otherwise, it defaults to the default mainnet provider plugin. You can also spec
 ```bash
 ape plugins add infura
 ```
-
-## Development
-
-Please see the [contributing guide](CONTRIBUTING.md) to learn more how to contribute to this project.
-Comments, questions, criticisms and pull requests are welcomed.
