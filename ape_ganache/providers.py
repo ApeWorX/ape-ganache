@@ -252,18 +252,15 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             message = gas_estimation_error_message(tx_error)
             raise TransactionError(base_err=tx_error, message=message) from err
 
-    def send_transaction(self, txn: TransactionAPI) -> ReceiptAPI:
+    def send_transaction(self, txn: TransactionAPI, raise_on_fail: bool = True) -> ReceiptAPI:
         """
         Creates a new message call transaction or a contract creation
         for signed transactions.
         """
         try:
-            receipt = super().send_transaction(txn)
+            return super().send_transaction(txn, raise_on_fail=raise_on_fail)
         except ValueError as err:
             raise _get_vm_error(err) from err
-
-        receipt.raise_for_status()
-        return receipt
 
 
 class GanacheMainnetForkProvider(GanacheProvider):
