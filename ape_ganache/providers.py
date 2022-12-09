@@ -2,9 +2,8 @@ import random
 import shutil
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Literal, Optional, Union, cast
 
-from ape._compat import Literal
 from ape.api import (
     PluginConfig,
     ProviderAPI,
@@ -158,7 +157,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             return
 
         self._web3 = Web3(HTTPProvider(self.uri))
-        if not self._web3.isConnected():
+        if not self._web3.is_connected():
             self._web3 = None
             return
 
