@@ -15,7 +15,7 @@ from ape.api import (
 )
 from ape.exceptions import ContractLogicError, ProviderError, SubprocessError, VirtualMachineError
 from ape.logging import logger
-from ape.types import AddressType, SnapshotID
+from ape.types import SnapshotID
 from ape.utils import cached_property
 from ape_test import Config as TestConfig
 from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
