@@ -6,6 +6,7 @@ from ape_ganache.providers import GANACHE_CHAIN_ID, GanacheProvider
 from tests.conftest import get_ganache_provider
 
 TEST_WALLET_ADDRESS = "0xD9b7fdb3FC0A0Aa3A507dCf0976bc23D49a9C7A3"
+BALANCED_WALLET_ADDRESS = "0x1e59ce931B4CFea3fe4B875411e280e173cB7A9C"
 
 
 def test_instantiation(ganache_disconnected):
@@ -51,6 +52,7 @@ def test_uri(ganache_connected):
     [
         (GanacheProvider.get_nonce, [TEST_WALLET_ADDRESS], 0),
         (GanacheProvider.get_balance, [TEST_WALLET_ADDRESS], 0),
+        (GanacheProvider.get_balance, [BALANCED_WALLET_ADDRESS], 1000000000000000000000),
         (GanacheProvider.get_code, [TEST_WALLET_ADDRESS], HexBytes("")),
     ],
 )
