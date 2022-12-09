@@ -296,7 +296,13 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             "call_type": CallType.CALL,
             "failed": receipt.failed,
         }
-        return get_calltree_from_geth_trace(receipt.trace, **root_node_kwargs)
+        tree = get_calltree_from_geth_trace(receipt.trace, **root_node_kwargs)
+
+        # Strange bug in Ganache where sub-calls REVERT trickles to the top-level
+        # CALL when it is not supposed to. Reset `failed`.
+        tree.failed = receipt.failed
+
+        return tree
 
     def get_virtual_machine_error(self, exception: Exception) -> VirtualMachineError:
         if not len(exception.args):
@@ -317,22 +323,27 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         # Handle `ContactLogicError` similarly to other providers in `ape`.
         # by stripping off the unnecessary prefix that ganache has on reverts.
         ganache_prefix = "VM Exception while processing transaction: "
-        other_prefix = "execution reverted: VM Exception while processing transaction: revert "
-        if message.startswith(ganache_prefix):
-            message = message.replace(ganache_prefix, "")
-            if message == "revert":
-                return ContractLogicError()
+        prefixes = (
+            f"execution reverted: {ganache_prefix}",
+            ganache_prefix
+        )
+        is_revert = False
+        for prefix in prefixes:
+            if message.startswith(prefix):
+                message = message.replace(prefix, "")
+                is_revert = True
+                break
 
-            return ContractLogicError(revert_message=message)
+        if not is_revert:
+            return VirtualMachineError(message=message)
 
-        elif message.startswith(other_prefix):
-            message = message.replace(other_prefix, "").strip()
-            if not message:
-                return ContractLogicError()
+        elif message == "revert":
+            return ContractLogicError()
 
-            return ContractLogicError(revert_message=message)
+        elif message.startswith("revert "):
+            message = message.replace("revert ", "")
 
-        return VirtualMachineError(message=message)
+        return ContractLogicError(revert_message=message)
 
 
 class GanacheForkProvider(GanacheProvider):

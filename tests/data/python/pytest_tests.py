@@ -2,7 +2,7 @@ def test_provider(project, networks):
     """
     Tests that the network gets set from ape-config.yaml.
     """
-    assert networks.provider.name == "foundry"
+    assert networks.provider.name == "ganache"
 
 
 def test_contract_interaction(owner, contract):

@@ -4,7 +4,7 @@ ethereum:
   mainnet:
     default_provider: alchemy
   local:
-    default_provider: foundry
+    default_provider: ganache
 
 ganache:
   request_timeout: 29
