@@ -267,6 +267,9 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         receipt.raise_for_status()
         return receipt
 
+    def get_virtual_machine_error(self, exception: Exception) -> VirtualMachineError:
+        return _get_vm_error(exception)
+
 
 class GanacheMainnetForkProvider(GanacheProvider):
     """
@@ -337,7 +340,7 @@ class GanacheMainnetForkProvider(GanacheProvider):
         return cmd
 
 
-def _get_vm_error(web3_value_error: ValueError) -> TransactionError:
+def _get_vm_error(web3_value_error: Exception) -> TransactionError:
     if not len(web3_value_error.args):
         return VirtualMachineError(base_err=web3_value_error)
 
@@ -351,9 +354,7 @@ def _get_vm_error(web3_value_error: ValueError) -> TransactionError:
 
     # Handle `ContactLogicError` similarly to other providers in `ape`.
     # by stripping off the unnecessary prefix that ganache has on reverts.
-    ganache_prefix = (
-        "Error: VM Exception while processing transaction: reverted with reason string "
-    )
+    ganache_prefix = "VM Exception while processing transaction: revert "
     if message.startswith(ganache_prefix):
         message = message.replace(ganache_prefix, "").strip("'")
         return ContractLogicError(revert_message=message)

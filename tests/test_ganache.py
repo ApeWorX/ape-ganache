@@ -1,4 +1,5 @@
 import pytest
+from ape.exceptions import ContractLogicError
 from hexbytes import HexBytes
 
 from ape_ganache.exceptions import GanacheProviderError
@@ -138,3 +139,13 @@ def test_snapshot_and_revert(ganache_connected):
 @pytest.mark.xfail(reason="Ganache doesn't support *_impersonateAccount yet.")
 def test_unlock_account(ganache_connected):
     assert ganache_connected.unlock_account(TEST_WALLET_ADDRESS) is True
+
+
+def test_get_vm_error(ganache_connected):
+    err = ValueError(
+        {"message": "VM Exception while processing transaction: revert Not authorized"}
+    )
+    error = ganache_connected.get_virtual_machine_error(err)
+
+    assert isinstance(error, ContractLogicError)
+    assert error.revert_message == "Not authorized"
