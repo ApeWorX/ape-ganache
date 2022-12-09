@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import os.path
 
-from setuptools import find_packages, setup  # type: ignore
+from setuptools import find_packages, setup
 
 extras_require = {
     "test": [  # `test` GitHub Action jobs uses this
@@ -10,13 +10,15 @@ extras_require = {
         "pytest-xdist",  # multi-process runner
         "pytest-cov",  # Coverage analyzer plugin
         "hypothesis>=6.2.0,<7.0",  # Strategy-based fuzzer
+        "ape-alchemy",  # For running fork tests
     ],
     "lint": [
-        "black>=22.6.0,<23.0",  # auto-formatter and linter
-        "mypy>=0.971,<1.0",  # Static type analyzer
-        "flake8>=4.0.1,<5.0",  # Style linter
-        "isort>=5.10.1,<6.0",  # Import sorting linter
-        "types-requests",  # NOTE: Needed due to mypy typeshed
+        "black>=22.10.0",  # auto-formatter and linter
+        "mypy>=0.991,<1.0",  # Static type analyzer
+        "flake8>=5.0.4",  # Style linter
+        "isort>=5.10.1",  # Import sorting linter
+        "types-requests",  # Needed due to mypy typeshed
+        "types-setuptools",  # Needed due to mypy typeshed
     ],
     "doc": [
         "Sphinx>=3.4.3,<4",  # Documentation generator

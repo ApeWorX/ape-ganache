@@ -5,13 +5,10 @@ implementation written in Node.js).
 
 from ape import plugins
 from ape.api.networks import LOCAL_NETWORK_NAME
+from ape_ethereum.ecosystem import NETWORKS
 
-from .providers import (
-    GanacheMainnetForkProvider,
-    GanacheNetworkConfig,
-    GanacheProvider,
-    GanacheProviderError,
-)
+from .exceptions import GanacheProviderError, GanacheSubprocessError
+from .provider import GanacheForkProvider, GanacheNetworkConfig, GanacheProvider
 
 
 @plugins.register(plugins.Config)
@@ -22,12 +19,14 @@ def config_class():
 @plugins.register(plugins.ProviderPlugin)
 def providers():
     yield "ethereum", LOCAL_NETWORK_NAME, GanacheProvider
-    yield "ethereum", "mainnet-fork", GanacheMainnetForkProvider
+    for network in NETWORKS:
+        yield "ethereum", f"{network}-fork", GanacheForkProvider
 
 
 __all__ = [
     "GanacheNetworkConfig",
     "GanacheProvider",
+    "GanacheForkProvider",
     "GanacheProviderError",
     "GanacheSubprocessError",
 ]
