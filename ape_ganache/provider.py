@@ -234,9 +234,6 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             "m/44'/60'/0'",
         ]
 
-    def _make_request(self, rpc: str, args: list) -> Any:
-        return self._web3.manager.request_blocking(rpc, args)  # type: ignore
-
     def set_timestamp(self, new_timestamp: int):
         new_timestamp *= 10**3  # Convert to milliseconds
         new_timestamp_hex = HexBytes(new_timestamp).hex()
@@ -258,26 +255,17 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
     def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         result = self._make_request("debug_traceTransaction", [txn_hash])
+
+        import json
+        path = Path.home() / "gan_struct_logs.txt"
+        with open(str(path), "w+") as _f:
+            _f.write(json.dumps(result, indent=2))
+
+        return
+
         frames = result.get("structLogs", [])
         for frame in frames:
             yield TraceFrame(**frame)
-
-    def get_balance(self, address: str) -> int:
-        # Web3.py has issues with Ganache response.
-        # For some reason, web3.py errors with Ganache
-        data = {
-            "jsonrpc": "2.0",
-            "method": "eth_getBalance",
-            "params": [address, "latest"],
-            "id": 0,
-        }
-        response = requests.post(self.uri, json=data)
-        response.raise_for_status()
-        response_data = response.json()
-        if "result" not in response_data:
-            raise GanacheProviderError(f"Error getting balance for '{address}':\n{response.text}")
-
-        return int(response_data["result"], 16)
 
     def get_call_tree(self, txn_hash: str) -> CallTreeNode:
         receipt = self.chain_manager.get_receipt(txn_hash)
