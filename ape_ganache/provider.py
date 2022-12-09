@@ -323,10 +323,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         # Handle `ContactLogicError` similarly to other providers in `ape`.
         # by stripping off the unnecessary prefix that ganache has on reverts.
         ganache_prefix = "VM Exception while processing transaction: "
-        prefixes = (
-            f"execution reverted: {ganache_prefix}",
-            ganache_prefix
-        )
+        prefixes = (f"execution reverted: {ganache_prefix}", ganache_prefix)
         is_revert = False
         for prefix in prefixes:
             if message.startswith(prefix):
