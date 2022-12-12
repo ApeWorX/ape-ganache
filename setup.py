@@ -70,7 +70,10 @@ setup(
     url="https://github.com/ApeWorX/ape-ganache",
     include_package_data=True,
     install_requires=[
-        "eth-ape>=0.5.2,<0.6",
+        "eth-ape>=0.5.7,<0.6",
+        "evm-trace>=0.1.0a14",
+        "hexbytes",  # Use same version as eth-ape
+        "web3",  # Use same version as eth-ape
     ],
     python_requires=">=3.8,<4",
     extras_require=extras_require,

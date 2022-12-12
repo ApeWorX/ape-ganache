@@ -2,9 +2,8 @@ import random
 import shutil
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, Dict, Iterator, List, Literal, Optional, Union, cast
+from typing import Dict, Iterator, List, Literal, Optional, Union, cast
 
-import requests
 from ape.api import (
     PluginConfig,
     ProviderAPI,
@@ -255,14 +254,6 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
     def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         result = self._make_request("debug_traceTransaction", [txn_hash])
-
-        import json
-        path = Path.home() / "gan_struct_logs.txt"
-        with open(str(path), "w+") as _f:
-            _f.write(json.dumps(result, indent=2))
-
-        return
-
         frames = result.get("structLogs", [])
         for frame in frames:
             yield TraceFrame(**frame)
@@ -405,7 +396,8 @@ class GanacheForkProvider(GanacheProvider):
                 f"Provider '{self._upstream_provider.name}' is not an upstream provider."
             )
 
-        fork_url = self._upstream_provider.connection_str
+        # Using `getattr` because some IDE type checkers get confused.
+        fork_url = getattr(self._upstream_provider, "connection_str")
         if not fork_url:
             raise GanacheProviderError("Upstream provider does not have a ``connection_str``.")
 
