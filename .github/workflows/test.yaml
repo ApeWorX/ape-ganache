@@ -71,13 +71,18 @@ jobs:
         - name: Setup Node
           uses: actions/setup-node@v2
           with:
-              node-version: '14'
+              node-version: '16'
 
         - name: Install Node Dependencies
           run: npm install --global ganache
 
         - name: Run Tests
-          run: pytest -m "not fuzzing" -n 0 -s --cov
+          run: pytest -m "not fork and not manual and not fuzzing"
+
+        - name: Run Fork Tests (Alchemy)
+          # Only run tests requiring Alchemy if not from a forked repo (Else it always fails)
+          if: github.event.pull_request.head.repo.full_name == github.repository
+          run: pytest -m fork
 
 # NOTE: uncomment this block after you've marked tests with @pytest.mark.fuzzing
 #    fuzzing:

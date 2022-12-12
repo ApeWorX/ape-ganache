@@ -2,45 +2,39 @@ import random
 import shutil
 from pathlib import Path
 from subprocess import PIPE, Popen
-from typing import Any, List, Literal, Optional, Union, cast
+from typing import Dict, Iterator, List, Literal, Optional, Union, cast
 
 from ape.api import (
     PluginConfig,
     ProviderAPI,
-    ReceiptAPI,
     SubprocessProvider,
     TestProviderAPI,
-    TransactionAPI,
     UpstreamProvider,
     Web3Provider,
 )
-from ape.exceptions import (
-    ContractLogicError,
-    OutOfGasError,
-    ProviderError,
-    SubprocessError,
-    TransactionError,
-    VirtualMachineError,
-)
+from ape.exceptions import ContractLogicError, ProviderError, SubprocessError, VirtualMachineError
 from ape.logging import logger
 from ape.types import SnapshotID
-from ape.utils import cached_property, gas_estimation_error_message
+from ape.utils import cached_property
 from ape_test import Config as TestConfig
+from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
+from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
+from web3.exceptions import ExtraDataLengthError
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
+from web3.middleware import geth_poa_middleware
+from web3.middleware.validation import MAX_EXTRADATA_LENGTH
 
 from .exceptions import GanacheNotInstalledError, GanacheProviderError
 
 EPHEMERAL_PORTS_START = 49152
 EPHEMERAL_PORTS_END = 60999
-GANACHE_START_NETWORK_RETRIES = [0.1, 0.2, 0.3, 0.5, 1.0]  # seconds between network retries
-GANACHE_START_PROCESS_ATTEMPTS = 3  # number of attempts to start subprocess before giving up
 DEFAULT_PORT = 8545
 GANACHE_CHAIN_ID = 1337
 
 
 class GanacheServerConfig(PluginConfig):
-    port: Union[int, Literal["auto"]] = "auto"
+    port: Union[int, Literal["auto"]] = DEFAULT_PORT
 
 
 class GanacheForkConfig(PluginConfig):
@@ -54,8 +48,12 @@ class GanacheNetworkConfig(PluginConfig):
     server: GanacheServerConfig = GanacheServerConfig()
 
     # For setting the values in --fork.* command arguments.
-    # Used only in GanacheMainnetForkProvider.
-    fork: GanacheForkConfig = GanacheForkConfig()
+    # Used only in GanacheForkProvider.
+    fork: Dict[str, Dict[str, GanacheForkConfig]] = {}
+
+    # Retry strategy configs, try increasing these if you're getting GanacheSubprocessError
+    request_timeout: int = 30
+    fork_request_timeout: int = 300
 
 
 def _call(*args):
@@ -81,6 +79,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
     @property
     def process_name(self) -> str:
         return "Ganache"
+
+    @property
+    def timeout(self) -> int:
+        return self.config.request_timeout
 
     @cached_property
     def ganache_bin(self) -> str:
@@ -121,7 +123,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
         # NOTE: Must set port before calling 'super().connect()'.
         if not self.port:
-            self.port = self.config.server.port  # type: ignore
+            self.port = self.provider_settings.get("port", self.config.server.port)
 
         if self.is_connected:
             # Connects to already running process
@@ -140,7 +142,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                         f"Connecting to existing '{self.process_name}' at port '{self.port}'."
                     )
             else:
-                for _ in range(self.config.process_attempts):  # type: ignore
+                for _ in range(self.config.process_attempts):
                     try:
                         self._start()
                         break
@@ -156,21 +158,37 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         if not self.port:
             return
 
-        self._web3 = Web3(HTTPProvider(self.uri))
+        self._web3 = Web3(HTTPProvider(self.uri, request_kwargs={"timeout": self.timeout}))
+
         if not self._web3.is_connected():
             self._web3 = None
             return
 
         # Verify is actually a Ganache provider,
         # or else skip it to possibly try another port.
-        client_version = self._web3.clientVersion
+        # TODO: Once we are on web3.py 0.6.0b8 or later, can just use snake_case here.
+        client_version = getattr(self._web3, "client_version", getattr(self._web3, "clientVersion"))
 
         if "ganache" in client_version.lower():
             self._web3.eth.set_gas_price_strategy(rpc_gas_price_strategy)
         else:
             raise ProviderError(
-                f"Port '{self.port}' already in use by another process that isn't a Ganache node."
+                f"Port '{self.port}' already in use by another process that isn't a Ganache server."
             )
+
+        # Handle if using PoA
+        try:
+            block = self.web3.eth.get_block(0)
+        except ExtraDataLengthError:
+            began_poa = True
+        else:
+            began_poa = (
+                "proofOfAuthorityData" in block
+                or len(block.get("extraData", "")) > MAX_EXTRADATA_LENGTH
+            )
+
+        if began_poa:
+            self._web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
     def _start(self):
         use_random_port = self.port == "auto"
@@ -208,18 +226,17 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             "--server.port",
             str(self.port),
             "--wallet.mnemonic",
-            '"' + self.mnemonic + '"',
-            "--wallet.hdPath",
-            "m/44'/60'/0'",
+            self.mnemonic,
             "--wallet.totalAccounts",
             str(self.number_of_accounts),
+            "--wallet.hdPath",
+            "m/44'/60'/0'",
         ]
 
-    def _make_request(self, rpc: str, args: list) -> Any:
-        return self._web3.manager.request_blocking(rpc, args)  # type: ignore
-
     def set_timestamp(self, new_timestamp: int):
-        self._make_request("evm_setTime", [new_timestamp])
+        new_timestamp *= 10**3  # Convert to milliseconds
+        new_timestamp_hex = HexBytes(new_timestamp).hex()
+        self._make_request("evm_setTime", [new_timestamp_hex])
 
     def mine(self, num_blocks: int = 1):
         for i in range(num_blocks):
@@ -231,44 +248,81 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
     def revert(self, snapshot_id: SnapshotID):
         if isinstance(snapshot_id, str) and snapshot_id.isnumeric():
-            snapshot_id = int(snapshot_id)  # type: ignore
+            snapshot_id = int(snapshot_id)
 
         return self._make_request("evm_revert", [snapshot_id])
 
-    def estimate_gas_cost(self, txn: TransactionAPI, **kwargs) -> int:
-        """
-        Generates and returns an estimate of how much gas is necessary
-        to allow the transaction to complete.
-        The transaction will not be added to the blockchain.
-        """
-        try:
-            return super().estimate_gas_cost(txn, **kwargs)
-        except ValueError as err:
-            tx_error = _get_vm_error(err)
+    def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
+        result = self._make_request("debug_traceTransaction", [txn_hash])
+        frames = result.get("structLogs", [])
+        for frame in frames:
+            yield TraceFrame(**frame)
 
-            # If this is the cause of a would-be revert,
-            # raise ContractLogicError so that we can confirm tx-reverts.
-            if isinstance(tx_error, ContractLogicError):
-                raise tx_error from err
+    def get_call_tree(self, txn_hash: str) -> CallTreeNode:
+        receipt = self.chain_manager.get_receipt(txn_hash)
 
-            message = gas_estimation_error_message(tx_error)
-            raise TransactionError(base_err=tx_error, message=message) from err
+        # Subtract base gas costs.
+        # (21_000 + 4 gas per 0-byte and 16 gas per non-zero byte).
+        data_gas = sum([4 if x == 0 else 16 for x in receipt.data])
+        method_gas_cost = receipt.gas_used - 21_000 - data_gas
 
-    def send_transaction(self, txn: TransactionAPI) -> ReceiptAPI:
-        """
-        Creates a new message call transaction or a contract creation
-        for signed transactions.
-        """
-        try:
-            receipt = super().send_transaction(txn)
-        except ValueError as err:
-            raise _get_vm_error(err) from err
+        root_node_kwargs = {
+            "gas_cost": method_gas_cost,
+            "gas_limit": receipt.gas_limit,
+            "address": receipt.receiver,
+            "calldata": receipt.data,
+            "value": receipt.value,
+            "call_type": CallType.CALL,
+            "failed": receipt.failed,
+        }
+        tree = get_calltree_from_geth_trace(receipt.trace, **root_node_kwargs)
 
-        receipt.raise_for_status()
-        return receipt
+        # Strange bug in Ganache where sub-calls REVERT trickles to the top-level
+        # CALL when it is not supposed to. Reset `failed`.
+        tree.failed = receipt.failed
+
+        return tree
+
+    def get_virtual_machine_error(self, exception: Exception) -> VirtualMachineError:
+        if not len(exception.args):
+            return VirtualMachineError(base_err=exception)
+
+        err_data = exception.args[0]
+        if isinstance(err_data, dict):
+            message = str(err_data.get("message"))
+        elif isinstance(err_data, str):
+            # The message is already extract during gas estimation
+            message = str(err_data)
+        else:
+            return VirtualMachineError(base_err=exception)
+
+        if not message:
+            return VirtualMachineError(base_err=exception)
+
+        # Handle `ContactLogicError` similarly to other providers in `ape`.
+        # by stripping off the unnecessary prefix that ganache has on reverts.
+        ganache_prefix = "VM Exception while processing transaction: "
+        prefixes = (f"execution reverted: {ganache_prefix}", ganache_prefix)
+        is_revert = False
+        for prefix in prefixes:
+            if message.startswith(prefix):
+                message = message.replace(prefix, "")
+                is_revert = True
+                break
+
+        if not is_revert:
+            return VirtualMachineError(message=message)
+
+        elif message == "revert":
+            return ContractLogicError()
+
+        elif message.startswith("revert "):
+            message = message.replace("revert ", "")
+
+        return ContractLogicError(revert_message=message)
 
 
-class GanacheMainnetForkProvider(GanacheProvider):
+class GanacheForkProvider(GanacheProvider):
     """
     A Ganache provider that uses ``--fork``, like:
     ``ganache --fork.url <upstream-provider-url>``.
@@ -279,15 +333,33 @@ class GanacheMainnetForkProvider(GanacheProvider):
     """
 
     @property
+    def timeout(self) -> int:
+        return self.config.fork_request_timeout
+
+    @property
+    def _upstream_network_name(self) -> str:
+        return self.network.name.replace("-fork", "")
+
+    @cached_property
     def _fork_config(self) -> GanacheForkConfig:
         config = cast(GanacheNetworkConfig, self.config)
-        return config.fork
+
+        ecosystem_name = self.network.ecosystem.name
+        if ecosystem_name not in config.fork:
+            return GanacheForkConfig()  # Just use default
+
+        network_name = self._upstream_network_name
+        if network_name not in config.fork[ecosystem_name]:
+            return GanacheForkConfig()  # Just use default
+
+        return config.fork[ecosystem_name][network_name]
 
     @cached_property
     def _upstream_provider(self) -> ProviderAPI:
         # NOTE: if 'upstream_provider_name' is 'None', this gets the default mainnet provider.
         if self.network.ecosystem.name != "ethereum":
             raise GanacheProviderError("Fork mode only works for the ethereum ecosystem.")
+
         mainnet = self.network.ecosystem.mainnet
         upstream_provider_name = self._fork_config.upstream_provider
         upstream_provider = mainnet.get_provider(provider_name=upstream_provider_name)
@@ -296,14 +368,26 @@ class GanacheMainnetForkProvider(GanacheProvider):
     def connect(self):
         super().connect()
 
-        # Verify that we're connected to a Ganache node with mainnet-fork mode.
-        self._upstream_provider.connect()
-        upstream_genesis_block_hash = self._upstream_provider.get_block(0).hash
-        self._upstream_provider.disconnect()
+        # Verify that we're connected to a Foundry node with fork mode.
+        upstream_provider = self._upstream_provider
+        upstream_provider.connect()
+        try:
+            upstream_genesis_block_hash = upstream_provider.get_block(0).hash
+        except ExtraDataLengthError as err:
+            if isinstance(upstream_provider, Web3Provider):
+                logger.error(
+                    f"Upstream provider '{upstream_provider.name}' missing Geth PoA middleware."
+                )
+                upstream_provider.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                upstream_genesis_block_hash = upstream_provider.get_block(0).hash
+            else:
+                raise ProviderError(f"Unable to get genesis block: {err}.") from err
+
+        upstream_provider.disconnect()
         if self.get_block(0).hash != upstream_genesis_block_hash:
-            self.disconnect()
-            raise GanacheProviderError(
-                f"Upstream network is not {self.network.name.replace('-fork', '')}"
+            logger.warning(
+                "Upstream network has mismatching genesis block. "
+                "This could be an issue with ganache."
             )
 
     def build_command(self) -> List[str]:
@@ -312,7 +396,8 @@ class GanacheMainnetForkProvider(GanacheProvider):
                 f"Provider '{self._upstream_provider.name}' is not an upstream provider."
             )
 
-        fork_url = self._upstream_provider.connection_str
+        # Using `getattr` because some IDE type checkers get confused.
+        fork_url = getattr(self._upstream_provider, "connection_str")
         if not fork_url:
             raise GanacheProviderError("Upstream provider does not have a ``connection_str``.")
 
@@ -326,8 +411,6 @@ class GanacheMainnetForkProvider(GanacheProvider):
             [
                 "--fork.url",
                 fork_url,
-                "--fork.network",
-                self._upstream_provider.name,
             ]
         )
         fork_block_number = self._fork_config.block_number
@@ -335,32 +418,3 @@ class GanacheMainnetForkProvider(GanacheProvider):
             cmd.extend(("--fork.blockNumber", str(fork_block_number)))
 
         return cmd
-
-
-def _get_vm_error(web3_value_error: ValueError) -> TransactionError:
-    if not len(web3_value_error.args):
-        return VirtualMachineError(base_err=web3_value_error)
-
-    err_data = web3_value_error.args[0]
-    if not isinstance(err_data, dict):
-        return VirtualMachineError(base_err=web3_value_error)
-
-    message = str(err_data.get("message"))
-    if not message:
-        return VirtualMachineError(base_err=web3_value_error)
-
-    # Handle `ContactLogicError` similarly to other providers in `ape`.
-    # by stripping off the unnecessary prefix that ganache has on reverts.
-    ganache_prefix = (
-        "Error: VM Exception while processing transaction: reverted with reason string "
-    )
-    if message.startswith(ganache_prefix):
-        message = message.replace(ganache_prefix, "").strip("'")
-        return ContractLogicError(revert_message=message)
-    elif "Transaction reverted without a reason string" in message:
-        return ContractLogicError()
-
-    elif message == "Transaction ran out of gas":
-        return OutOfGasError()
-
-    return VirtualMachineError(message=message)
