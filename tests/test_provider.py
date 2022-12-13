@@ -4,12 +4,13 @@ from pathlib import Path
 
 import pytest
 from ape.exceptions import ContractLogicError, SignatureError
-from evm_trace import CallTreeNode, CallType
+from evm_trace import CallTreeNode, CallType, TraceFrame
 
 from ape_ganache.exceptions import GanacheProviderError
 from ape_ganache.provider import GANACHE_CHAIN_ID
 
-TEST_WALLET_ADDRESS = "0xD9b7fdb3FC0A0Aa3A507dCf0976bc23D49a9C7A3"
+TEST_WALLET_ADDRESS = "0x04029bAcA527B69247dbE9243DfC9b5d12C7Ba60"
+# Checksum version of an account specified in the ape-config.yaml file.
 
 
 @pytest.fixture(scope="module")
@@ -96,6 +97,27 @@ def test_snapshot_and_revert(connected_provider):
     block_3 = connected_provider.get_block("latest")
     assert block_1.number == block_3.number
     assert block_1.hash == block_3.hash
+
+
+def test_unlock_account(connected_provider, accounts):
+    # Wallet unlocked in ape-config.yaml file.
+    assert len(connected_provider.unlocked_accounts) == 2
+    impersonated_account = connected_provider.unlocked_accounts[0]
+    assert TEST_WALLET_ADDRESS == impersonated_account.address
+
+    # Ensure can use impersonated accounts.
+    other_account = accounts[0]
+    other_account.transfer(impersonated_account, "1 ETH")
+    assert impersonated_account.balance == int(1e18)
+    receipt = impersonated_account.transfer(accounts[0], "0.5 ETH")
+    assert not receipt.failed
+
+
+def test_get_transaction_trace(connected_provider, sender, receiver):
+    transfer = sender.transfer(receiver, 1)
+    frame_data = connected_provider.get_transaction_trace(transfer.txn_hash)
+    for frame in frame_data:
+        assert isinstance(frame, TraceFrame)
 
 
 def test_get_call_tree(connected_provider, sender, receiver):

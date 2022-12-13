@@ -36,9 +36,10 @@ cd your-ape-project
 npm install --global ganache
 ```
 
-After that, you can use the ``--network ethereum:development:ganache`` command line flag to use the ganache network (if it's not already configured as the default).
+After that, you can use the ``--network ethereum:local:ganache`` command line flag to use the ganache network (if it's not already configured as the default).
 
-This network provider takes additional Ganache-specific configuration options. To use them, add these configs in your project's ``ape-config.yaml``:
+This network provider takes additional Ganache-specific configuration options.
+To use them, add these configs in your project's ``ape-config.yaml``:
 
 ```yaml
 ganache:
@@ -70,14 +71,29 @@ Specify the upstream archive-data provider in your ``ape-config.yaml``:
 
 ```yaml
 ganache:
-  mainnet_fork:
-    upstream_provider: infura
+  fork:
+    ethereum:
+      mainnet:
+        upstream_provider: infura
 ```
 
-Otherwise, it defaults to the default mainnet provider plugin. You can also specify a ``block_number``.
+Otherwise, it defaults to the default mainnet provider plugin.
+You can also specify a ``block_number``.
 
 **NOTE**: Make sure you have the upstream provider plugin installed for ape.
 
 ```bash
 ape plugins add infura
+```
+
+## Unlocking Accounts
+
+You can unlock / impersonate accounts at genesis time using Ganache.
+To do this, add the accounts to your config like this:
+
+```yaml
+ganache:
+  wallet:
+    unlocked_accounts:
+      - 0x04029baca527b69247dbe9243dfc9b5d12c7ba60
 ```

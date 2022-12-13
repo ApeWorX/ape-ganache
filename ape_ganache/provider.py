@@ -5,18 +5,22 @@ from subprocess import PIPE, Popen
 from typing import Dict, Iterator, List, Literal, Optional, Union, cast
 
 from ape.api import (
+    ImpersonatedAccount,
     PluginConfig,
     ProviderAPI,
+    ReceiptAPI,
     SubprocessProvider,
     TestProviderAPI,
+    TransactionAPI,
     UpstreamProvider,
     Web3Provider,
 )
 from ape.exceptions import ContractLogicError, ProviderError, SubprocessError, VirtualMachineError
 from ape.logging import logger
-from ape.types import SnapshotID
+from ape.types import AddressType, SnapshotID
 from ape.utils import cached_property
 from ape_test import Config as TestConfig
+from eth_utils import to_checksum_address, to_hex
 from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
 from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
@@ -24,6 +28,7 @@ from web3.exceptions import ExtraDataLengthError
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 from web3.middleware import geth_poa_middleware
 from web3.middleware.validation import MAX_EXTRADATA_LENGTH
+from web3.types import TxParams
 
 from .exceptions import GanacheNotInstalledError, GanacheProviderError
 
@@ -35,6 +40,10 @@ GANACHE_CHAIN_ID = 1337
 
 class GanacheServerConfig(PluginConfig):
     port: Union[int, Literal["auto"]] = DEFAULT_PORT
+
+
+class GanacheWalletConfig(PluginConfig):
+    unlocked_accounts: List[str] = []
 
 
 class GanacheForkConfig(PluginConfig):
@@ -50,6 +59,11 @@ class GanacheNetworkConfig(PluginConfig):
     # For setting the values in --fork.* command arguments.
     # Used only in GanacheForkProvider.
     fork: Dict[str, Dict[str, GanacheForkConfig]] = {}
+
+    wallet: GanacheWalletConfig = GanacheWalletConfig()
+    # For setting the values in --wallet.* command arguments
+    # BESIDES the mnemonic, HD Path, and number of accounts. Use
+    # the ``test`` config to set those.
 
     # Retry strategy configs, try increasing these if you're getting GanacheSubprocessError
     request_timeout: int = 30
@@ -67,6 +81,22 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
     @cached_property
     def _test_config(self) -> TestConfig:
         return cast(TestConfig, self.config_manager.get_config("test"))
+
+    @cached_property
+    def unlocked_accounts(self) -> List[ImpersonatedAccount]:
+        addresses: List[AddressType] = []
+        for address in self.config.wallet.unlocked_accounts:
+            if isinstance(address, str) and address.isnumeric():
+                # User didn't put quotes around addresses in config file
+                address_str = to_hex(int(address)).replace("0x", "")
+                address_str = f"0x{'0' * (40 - len(address_str))}{address_str}"
+                address = to_checksum_address(address_str)
+                addresses.append(address)
+            else:
+                address = to_checksum_address(address)
+                addresses.append(address)
+
+        return [ImpersonatedAccount(raw_address=x) for x in addresses]
 
     @property
     def mnemonic(self) -> str:
@@ -221,7 +251,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         super().disconnect()
 
     def build_command(self) -> List[str]:
-        return [
+        cmd = [
             self.ganache_bin,
             "--server.port",
             str(self.port),
@@ -231,7 +261,12 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             str(self.number_of_accounts),
             "--wallet.hdPath",
             "m/44'/60'/0'",
+            "--wallet.unlockedAccounts",
         ]
+        for account in self.unlocked_accounts:
+            cmd.extend(("--wallet.unlockedAccounts", account.address))
+
+        return cmd
 
     def set_timestamp(self, new_timestamp: int):
         new_timestamp *= 10**3  # Convert to milliseconds
@@ -251,6 +286,34 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             snapshot_id = int(snapshot_id)
 
         return self._make_request("evm_revert", [snapshot_id])
+
+    def send_transaction(self, txn: TransactionAPI) -> ReceiptAPI:
+        """
+        Creates a new message call transaction or a contract creation
+        for signed transactions.
+        """
+
+        sender = txn.sender
+        if sender in self.unlocked_accounts:
+            # Allow for an unsigned transaction
+            txn = self.prepare_transaction(txn)
+            txn_dict = txn.dict()
+            txn_params = cast(TxParams, txn_dict)
+
+            try:
+                txn_hash = self.web3.eth.send_transaction(txn_params)
+            except ValueError as err:
+                raise self.get_virtual_machine_error(err) from err
+
+            receipt = self.get_receipt(
+                txn_hash.hex(), required_confirmations=txn.required_confirmations or 0
+            )
+            receipt.raise_for_status()
+
+        else:
+            receipt = super().send_transaction(txn)
+
+        return receipt
 
     def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         result = self._make_request("debug_traceTransaction", [txn_hash])
