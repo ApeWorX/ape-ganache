@@ -15,9 +15,7 @@ from .expected_traces import (
     MAINNET_TRACE_FIRST_10_LINES,
 )
 
-MAINNET_FAIL_TXN_HASH = (
-    "0x053cba5c12172654d894f66d5670bab6215517a94189a9ffc09bc40a589ec04d"
-)
+MAINNET_FAIL_TXN_HASH = "0x053cba5c12172654d894f66d5670bab6215517a94189a9ffc09bc40a589ec04d"
 MAINNET_TXN_HASH = "0xb7d7f1d5ce7743e821d3026647df486f517946ef1342a1ae93c96e4a8016eab7"
 EXPECTED_MAP = {
     MAINNET_TXN_HASH: (MAINNET_TRACE_FIRST_10_LINES,),
@@ -66,9 +64,7 @@ def contract_a(owner, connected_provider):
         return ContractType.parse_file(base_path / f"contract_{suffix}.json")
 
     contract_c = owner.deploy(ContractContainer(get_contract_type("c")))
-    contract_b = owner.deploy(
-        ContractContainer(get_contract_type("b")), contract_c.address
-    )
+    contract_b = owner.deploy(ContractContainer(get_contract_type("b")), contract_c.address)
     contract_a = owner.deploy(
         ContractContainer(get_contract_type("a")),
         contract_b.address,
