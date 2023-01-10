@@ -11,6 +11,7 @@ extras_require = {
         "pytest-cov",  # Coverage analyzer plugin
         "hypothesis>=6.2.0,<7.0",  # Strategy-based fuzzer
         "ape-alchemy",  # For running fork tests
+        "ape-ens",  # Needed for testing ENS conversion types
     ],
     "lint": [
         "black>=22.10.0",  # auto-formatter and linter
