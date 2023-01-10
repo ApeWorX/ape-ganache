@@ -61,9 +61,8 @@ class GanacheNetworkConfig(PluginConfig):
     fork: Dict[str, Dict[str, GanacheForkConfig]] = {}
 
     wallet: GanacheWalletConfig = GanacheWalletConfig()
-    # For setting the values in --wallet.* command arguments
-    # BESIDES the mnemonic, HD Path, and number of accounts. Use
-    # the ``test`` config to set those.
+    # wallet allows setting values in --wallet.* command arguments
+    # Use the ``test`` config to set the mnemonic, HD Path, and number of accounts.
 
     # Retry strategy configs, try increasing these if you're getting GanacheSubprocessError
     request_timeout: int = 30
