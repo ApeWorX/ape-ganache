@@ -15,7 +15,9 @@ def mainnet_fork_contract_instance(owner, contract_container, mainnet_fork_provi
 
 
 @pytest.mark.fork
-def test_multiple_providers(networks, connected_provider, mainnet_fork_port, goerli_fork_port):
+def test_multiple_providers(
+    networks, connected_provider, mainnet_fork_port, goerli_fork_port
+):
     assert networks.active_provider.name == "ganache"
     assert networks.active_provider.network.name == "local"
     assert networks.active_provider.port == 8545
@@ -80,7 +82,9 @@ def test_revert(sender, mainnet_fork_contract_instance):
 
 
 @pytest.mark.fork
-def test_contract_revert_no_message(owner, mainnet_fork_contract_instance, mainnet_fork_provider):
+def test_contract_revert_no_message(
+    owner, mainnet_fork_contract_instance, mainnet_fork_provider
+):
     # The Contract raises empty revert when setting number to 5.
     with pytest.raises(ContractLogicError, match="Transaction failed."):
         mainnet_fork_contract_instance.setNumber(5, sender=owner)

@@ -14,6 +14,7 @@ ganache:
     unlocked_accounts:
       - 0x04029baca527b69247dbe9243dfc9b5d12c7ba60
       - "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
+      - vitalik.eth
 
   fork:
     ethereum:

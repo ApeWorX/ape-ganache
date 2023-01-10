@@ -15,7 +15,12 @@ from ape.api import (
     UpstreamProvider,
     Web3Provider,
 )
-from ape.exceptions import ContractLogicError, ProviderError, SubprocessError, VirtualMachineError
+from ape.exceptions import (
+    ContractLogicError,
+    ProviderError,
+    SubprocessError,
+    VirtualMachineError,
+)
 from ape.logging import logger
 from ape.types import AddressType, SnapshotID
 from ape.utils import cached_property
@@ -47,7 +52,9 @@ class GanacheWalletConfig(PluginConfig):
 
 
 class GanacheForkConfig(PluginConfig):
-    upstream_provider: Optional[str] = None  # Default is to use default upstream provider
+    upstream_provider: Optional[
+        str
+    ] = None  # Default is to use default upstream provider
     block_number: Optional[int] = None
 
 
@@ -92,7 +99,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                 address = to_checksum_address(address_str)
                 addresses.append(address)
             else:
-                address = to_checksum_address(address)
+                address = self.conversion_manager.convert(address, AddressType)
                 addresses.append(address)
 
         return [ImpersonatedAccount(raw_address=x) for x in addresses]
@@ -187,7 +194,9 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         if not self.port:
             return
 
-        self._web3 = Web3(HTTPProvider(self.uri, request_kwargs={"timeout": self.timeout}))
+        self._web3 = Web3(
+            HTTPProvider(self.uri, request_kwargs={"timeout": self.timeout})
+        )
 
         if not self._web3.is_connected():
             self._web3 = None
@@ -196,7 +205,9 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         # Verify is actually a Ganache provider,
         # or else skip it to possibly try another port.
         # TODO: Once we are on web3.py 0.6.0b8 or later, can just use snake_case here.
-        client_version = getattr(self._web3, "client_version", getattr(self._web3, "clientVersion"))
+        client_version = getattr(
+            self._web3, "client_version", getattr(self._web3, "clientVersion")
+        )
 
         if "ganache" in client_version.lower():
             self._web3.eth.set_gas_price_strategy(rpc_gas_price_strategy)
@@ -260,7 +271,6 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             str(self.number_of_accounts),
             "--wallet.hdPath",
             "m/44'/60'/0'",
-            "--wallet.unlockedAccounts",
         ]
         for account in self.unlocked_accounts:
             cmd.extend(("--wallet.unlockedAccounts", account.address))
@@ -420,7 +430,9 @@ class GanacheForkProvider(GanacheProvider):
     def _upstream_provider(self) -> ProviderAPI:
         # NOTE: if 'upstream_provider_name' is 'None', this gets the default mainnet provider.
         if self.network.ecosystem.name != "ethereum":
-            raise GanacheProviderError("Fork mode only works for the ethereum ecosystem.")
+            raise GanacheProviderError(
+                "Fork mode only works for the ethereum ecosystem."
+            )
 
         mainnet = self.network.ecosystem.mainnet
         upstream_provider_name = self._fork_config.upstream_provider
@@ -440,7 +452,9 @@ class GanacheForkProvider(GanacheProvider):
                 logger.error(
                     f"Upstream provider '{upstream_provider.name}' missing Geth PoA middleware."
                 )
-                upstream_provider.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                upstream_provider.web3.middleware_onion.inject(
+                    geth_poa_middleware, layer=0
+                )
                 upstream_genesis_block_hash = upstream_provider.get_block(0).hash
             else:
                 raise ProviderError(f"Unable to get genesis block: {err}.") from err
@@ -461,7 +475,9 @@ class GanacheForkProvider(GanacheProvider):
         # Using `getattr` because some IDE type checkers get confused.
         fork_url = getattr(self._upstream_provider, "connection_str")
         if not fork_url:
-            raise GanacheProviderError("Upstream provider does not have a ``connection_str``.")
+            raise GanacheProviderError(
+                "Upstream provider does not have a ``connection_str``."
+            )
 
         if fork_url.replace("localhost", "127.0.0.1") == self.uri:
             raise GanacheProviderError(

@@ -101,7 +101,7 @@ def test_snapshot_and_revert(connected_provider):
 
 def test_unlock_account(connected_provider, accounts):
     # Wallet unlocked in ape-config.yaml file.
-    assert len(connected_provider.unlocked_accounts) == 2
+    assert len(connected_provider.unlocked_accounts) == 3
     impersonated_account = connected_provider.unlocked_accounts[0]
     assert TEST_WALLET_ADDRESS == impersonated_account.address
 
@@ -117,7 +117,7 @@ def test_get_transaction_trace(connected_provider, sender, receiver):
     transfer = sender.transfer(receiver, 1)
     frame_data = connected_provider.get_transaction_trace(transfer.txn_hash)
     for frame in frame_data:
-        assert isinstance(frame, TraceFrame)
+        assert TraceFrame.parse_obj(frame)
 
 
 def test_get_call_tree(connected_provider, sender, receiver):
