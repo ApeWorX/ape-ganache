@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from ape.api.accounts import ImpersonatedAccount
+from ape.api.networks import LOCAL_NETWORK_NAME
 from ape.exceptions import ContractLogicError
 from ape_ethereum.ecosystem import NETWORKS
 
@@ -16,39 +17,42 @@ def mainnet_fork_contract_instance(owner, contract_container, mainnet_fork_provi
 
 
 @pytest.mark.fork
-def test_multiple_providers(networks, connected_provider, mainnet_fork_port, goerli_fork_port):
-    assert networks.active_provider.name == "ganache"
-    assert networks.active_provider.network.name == "local"
+def test_multiple_providers(
+    name, networks, connected_provider, mainnet_fork_port, goerli_fork_port
+):
+    assert networks.active_provider.name == name
+    assert networks.active_provider.network.name == LOCAL_NETWORK_NAME
     assert networks.active_provider.port == 8545
 
     with networks.ethereum.mainnet_fork.use_provider(
-        "ganache", provider_settings={"port": mainnet_fork_port}
+        name, provider_settings={"port": mainnet_fork_port}
     ):
-        assert networks.active_provider.name == "ganache"
+        assert networks.active_provider.name == name
         assert networks.active_provider.network.name == "mainnet-fork"
         assert networks.active_provider.port == mainnet_fork_port
 
         with networks.ethereum.goerli_fork.use_provider(
-            "ganache", provider_settings={"port": goerli_fork_port}
+            name, provider_settings={"port": goerli_fork_port}
         ):
-            assert networks.active_provider.name == "ganache"
+            assert networks.active_provider.name == name
             assert networks.active_provider.network.name == "goerli-fork"
             assert networks.active_provider.port == goerli_fork_port
 
-        assert networks.active_provider.name == "ganache"
+        assert networks.active_provider.name == name
         assert networks.active_provider.network.name == "mainnet-fork"
         assert networks.active_provider.port == mainnet_fork_port
 
-    assert networks.active_provider.name == "ganache"
-    assert networks.active_provider.network.name == "local"
+    assert networks.active_provider.name == name
+    assert networks.active_provider.network.name == LOCAL_NETWORK_NAME
     assert networks.active_provider.port == 8545
 
 
 @pytest.mark.parametrize("network", [k for k in NETWORKS.keys()])
-def test_fork_config(config, network):
-    plugin_config = config.get_config("ganache")
+def test_fork_config(name, config, network):
+    plugin_config = config.get_config(name)
     network_config = plugin_config["fork"].get("ethereum", {}).get(network, {})
-    assert network_config.get("upstream_provider") == "alchemy", "config not registered"
+    message = f"Config not registered for network '{network}'."
+    assert network_config.get("upstream_provider") == "alchemy", message
 
 
 @pytest.mark.fork

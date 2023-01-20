@@ -21,6 +21,9 @@ extras_require = {
         "types-PyYAML",  # Needed due to mypy typeshed
         "flake8>=5.0.4",  # Style linter
         "isort>=5.10.1",  # Import sorting linter
+        "mdformat>=0.7.16",  # Auto-formatter for markdown
+        "mdformat-gfm>=0.3.5",  # Needed for formatting GitHub-flavored markdown
+        "mdformat-frontmatter>=0.4.1",  # Needed for frontmatters-style headers in issue templates
     ],
     "doc": [
         "Sphinx>=3.4.3,<4",  # Documentation generator
@@ -71,7 +74,7 @@ setup(
     url="https://github.com/ApeWorX/ape-ganache",
     include_package_data=True,
     install_requires=[
-        "eth-ape>=0.5.7,<0.6",
+        "eth-ape>=0.6.0,<0.7",
         "evm-trace>=0.1.0a14",
         "hexbytes",  # Use same version as eth-ape
         "web3",  # Use same version as eth-ape

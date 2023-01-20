@@ -4,12 +4,12 @@ Ganache network provider plugin for Ape. Ganache is a tool for creating a local 
 
 ## Dependencies
 
-* [python3](https://www.python.org/downloads) version 3.8 or greater, python3-dev
-* Node.js, NPM, and Ganache. See Ganache's [Installation](https://github.com/trufflesuite/ganache#command-line-use>) documentation for steps.
+- [python3](https://www.python.org/downloads) version 3.8 or greater, python3-dev
+- Node.js, NPM, and Ganache. See Ganache's [Installation](https://github.com/trufflesuite/ganache#command-line-use%3E) documentation for steps.
 
 ## Installation
 
-### via ``pip``
+### via `pip`
 
 You can install the latest release via [pip](https://pypi.org/project/pip/):
 
@@ -17,7 +17,7 @@ You can install the latest release via [pip](https://pypi.org/project/pip/):
 pip install ape-ganache
 ```
 
-### via ``setuptools``
+### via `setuptools`
 
 You can clone the repository and use [setuptools](https://github.com/pypa/setuptools) for the most up-to-date version:
 
@@ -36,10 +36,10 @@ cd your-ape-project
 npm install --global ganache
 ```
 
-After that, you can use the ``--network ethereum:local:ganache`` command line flag to use the ganache network (if it's not already configured as the default).
+After that, you can use the `--network ethereum:local:ganache` command line flag to use the ganache network (if it's not already configured as the default).
 
 This network provider takes additional Ganache-specific configuration options.
-To use them, add these configs in your project's ``ape-config.yaml``:
+To use them, add these configs in your project's `ape-config.yaml`:
 
 ```yaml
 ganache:
@@ -59,7 +59,7 @@ This is useful for multiprocessing and starting up multiple providers.
 
 ## Mainnet Fork
 
-The ``ape-ganache`` plugin also includes a mainnet fork provider. It requires using another provider that has access to mainnet.
+The `ape-ganache` plugin also includes a mainnet fork provider. It requires using another provider that has access to mainnet.
 
 Use it in most commands like this:
 
@@ -67,7 +67,7 @@ Use it in most commands like this:
 ape console --network :mainnet-fork:ganache
 ```
 
-Specify the upstream archive-data provider in your ``ape-config.yaml``:
+Specify the upstream archive-data provider in your `ape-config.yaml`:
 
 ```yaml
 ganache:
@@ -78,7 +78,7 @@ ganache:
 ```
 
 Otherwise, it defaults to the default mainnet provider plugin.
-You can also specify a ``block_number``.
+You can also specify a `block_number`.
 
 **NOTE**: Make sure you have the upstream provider plugin installed for ape.
 
