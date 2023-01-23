@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from ape.api.accounts import ImpersonatedAccount
 from ape.exceptions import ContractLogicError, SignatureError
 from evm_trace import CallTreeNode, CallType
 
@@ -151,3 +152,9 @@ def test_get_receipt(connected_provider, contract_instance, owner):
     assert receipt.txn_hash == actual.txn_hash
     assert actual.receiver == contract_instance.address
     assert actual.sender == receipt.sender
+
+
+def test_unlock_account(connected_provider):
+    assert TEST_WALLET_ADDRESS not in connected_provider.account_manager
+    ape_account = connected_provider.account_manager[TEST_WALLET_ADDRESS]
+    assert isinstance(ape_account, ImpersonatedAccount)

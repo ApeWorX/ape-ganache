@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from ape.api.accounts import ImpersonatedAccount
 from ape.exceptions import ContractLogicError
 from ape_ethereum.ecosystem import NETWORKS
 
@@ -93,3 +94,24 @@ def test_get_receipt(mainnet_fork_provider, mainnet_fork_contract_instance, owne
     assert receipt.txn_hash == actual.txn_hash
     assert actual.receiver == mainnet_fork_contract_instance.address
     assert actual.sender == receipt.sender
+
+
+@pytest.mark.fork
+def test_unlock_account_with_multiple_providers(
+    networks, connected_provider, mainnet_fork_port, goerli_fork_port
+):
+
+    with networks.ethereum.mainnet_fork.use_provider(
+        "ganache", provider_settings={"port": mainnet_fork_port}
+    ):
+        imp_acc = connected_provider.account_manager[TEST_ADDRESS]
+        assert isinstance(imp_acc, ImpersonatedAccount)
+
+        with networks.ethereum.goerli_fork.use_provider(
+            "ganache", provider_settings={"port": goerli_fork_port}
+        ):
+            imp_acc = connected_provider.account_manager[TEST_ADDRESS]
+            assert isinstance(imp_acc, ImpersonatedAccount)
+
+    imp_acc = connected_provider.account_manager[TEST_ADDRESS]
+    assert isinstance(imp_acc, ImpersonatedAccount)

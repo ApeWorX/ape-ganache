@@ -14,7 +14,7 @@ from ape.api import (
 )
 from ape.exceptions import ContractLogicError, ProviderError, SubprocessError, VirtualMachineError
 from ape.logging import logger
-from ape.types import SnapshotID
+from ape.types import AddressType, SnapshotID
 from ape.utils import cached_property
 from ape_test import Config as TestConfig
 from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
@@ -320,6 +320,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             message = message.replace("revert ", "")
 
         return ContractLogicError(revert_message=message)
+
+    def unlock_account(self, address: AddressType) -> bool:
+        self._make_request("evm_addAccount", [address, ""])
+        return self._make_request("personal_unlockAccount", [address, "", 9999999999])
 
 
 class GanacheForkProvider(GanacheProvider):
