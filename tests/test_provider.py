@@ -101,7 +101,12 @@ def test_snapshot_and_revert(connected_provider):
 
 def test_unlock_account(connected_provider, accounts):
     # Wallet unlocked in ape-config.yaml file.
-    assert len(connected_provider.unlocked_accounts) == 3
+
+    # NOTE: Allow '2' as an option in case PR is coming from a fork
+    # and the user does not have access to repo secrets that are needed
+    # to do the ENS conversion.
+    actual = len(connected_provider.unlocked_accounts)
+    assert actual in (2, 3)
     impersonated_account = connected_provider.unlocked_accounts[0]
     assert TEST_WALLET_ADDRESS == impersonated_account.address
 

@@ -15,7 +15,13 @@ from ape.api import (
     UpstreamProvider,
     Web3Provider,
 )
-from ape.exceptions import ContractLogicError, ProviderError, SubprocessError, VirtualMachineError
+from ape.exceptions import (
+    ContractLogicError,
+    ConversionError,
+    ProviderError,
+    SubprocessError,
+    VirtualMachineError,
+)
 from ape.logging import logger
 from ape.types import AddressType, SnapshotID
 from ape.utils import cached_property
@@ -92,7 +98,12 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                 address = to_checksum_address(address_str)
                 addresses.append(address)
             else:
-                address = self.conversion_manager.convert(address, AddressType)
+                try:
+                    address = self.conversion_manager.convert(address, AddressType)
+                except ConversionError as err:
+                    logger.error(str(err))
+                    continue
+
                 addresses.append(address)
 
         return [ImpersonatedAccount(raw_address=x) for x in addresses]
