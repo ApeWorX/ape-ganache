@@ -125,3 +125,7 @@ node_modules/
 
 # Ape stuff
 .build/
+
+**/.DS_Store
+*.swp
+*.swo
