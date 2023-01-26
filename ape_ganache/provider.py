@@ -387,7 +387,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                 break
 
         if not is_revert:
-            return VirtualMachineError(message=message, txn=txn)
+            return VirtualMachineError(message, txn=txn)
 
         elif message == "revert":
             return ContractLogicError(txn=txn)
