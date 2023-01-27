@@ -393,6 +393,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
         return ContractLogicError(revert_message=message)
 
+    def unlock_account(self, address: AddressType) -> bool:
+        self._make_request("evm_addAccount", [address, ""])
+        return self._make_request("personal_unlockAccount", [address, "", 9999999999])
+
 
 class GanacheForkProvider(GanacheProvider):
     """

@@ -13,6 +13,7 @@ TOKEN_B_GAS_REPORT = r"""
   Method +Times called +Min. +Max. +Mean +Median
  ─+
   balanceOf +\d +\d+ + \d+ + \d+ + \d+
+  transfer +\d +\d+ + \d+ + \d+ + \d+
 """
 EXPECTED_GAS_REPORT = rf"""
  +TestContractVy Gas
@@ -21,18 +22,19 @@ EXPECTED_GAS_REPORT = rf"""
  ─+
   myNumber +\d +\d+ + \d+ + \d+ + \d+
   setNumber +\d +\d+ + \d+ + \d+ + \d+
+  fooAndBar +\d +\d+ + \d+ + \d+ + \d+
 
  +TokenA Gas
 
   Method +Times called +Min. +Max. +Mean +Median
  ─+
   balanceOf +\d +\d+ + \d+ + \d+ + \d+
+  transfer +\d +\d+ + \d+ + \d+ + \d+
 {TOKEN_B_GAS_REPORT}
 """
 
 
-def filter_expected_methods(*methods_to_remove: str) -> str:
-    expected = EXPECTED_GAS_REPORT
+def filter_expected_methods(expected, *methods_to_remove: str) -> str:
     for name in methods_to_remove:
         line = f"\n  {name} +\\d +\\d+ + \\d+ + \\d+ + \\d+"
         expected = expected.replace(line, "")
@@ -77,8 +79,9 @@ def test_gas_flag_in_tests(ape_pytester):
 
 def test_gas_flag_exclude_method_using_cli_option(ape_pytester):
     # NOTE: Includes both a mutable and a view method.
-    expected = filter_expected_methods("fooAndBar", "myNumber")
+    expected = filter_expected_methods(EXPECTED_GAS_REPORT, "fooAndBar", "setNumber")
     # Also ensure can filter out whole class
     expected = expected.replace(TOKEN_B_GAS_REPORT, "")
-    result = ape_pytester.runpytest("--gas", "--gas-exclude", "*:fooAndBar,*:myNumber,tokenB:*")
+    expected = filter_expected_methods(expected, "transfer")
+    result = ape_pytester.runpytest("--gas", "--gas-exclude", "*:fooAndBar,*:setNumber,TokenB:*")
     run_gas_test(result, expected_report=expected)
