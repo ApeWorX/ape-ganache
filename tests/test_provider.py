@@ -100,25 +100,6 @@ def test_snapshot_and_revert(connected_provider):
     assert block_1.hash == block_3.hash
 
 
-def test_unlock_account(connected_provider, accounts):
-    # Wallet unlocked in ape-config.yaml file.
-
-    # NOTE: Allow '2' as an option in case PR is coming from a fork
-    # and the user does not have access to repo secrets that are needed
-    # to do the ENS conversion.
-    actual = len(connected_provider.unlocked_accounts)
-    assert actual in (2, 3)
-    impersonated_account = connected_provider.unlocked_accounts[0]
-    assert TEST_WALLET_ADDRESS == impersonated_account.address
-
-    # Ensure can use impersonated accounts.
-    other_account = accounts[0]
-    other_account.transfer(impersonated_account, "1 ETH")
-    assert impersonated_account.balance == int(1e18)
-    receipt = impersonated_account.transfer(accounts[0], "0.5 ETH")
-    assert not receipt.failed
-
-
 def test_get_transaction_trace(connected_provider, sender, receiver):
     transfer = sender.transfer(receiver, 1)
     frame_data = connected_provider.get_transaction_trace(transfer.txn_hash)
@@ -185,3 +166,22 @@ def test_unlock_account(connected_provider):
     assert TEST_WALLET_ADDRESS not in connected_provider.account_manager
     ape_account = connected_provider.account_manager[TEST_WALLET_ADDRESS]
     assert isinstance(ape_account, ImpersonatedAccount)
+
+
+def test_unlock_account_from_config(connected_provider, accounts):
+    # Wallet unlocked in ape-config.yaml file.
+
+    # NOTE: Allow '2' as an option in case PR is coming from a fork
+    # and the user does not have access to repo secrets that are needed
+    # to do the ENS conversion.
+    actual = len(connected_provider.unlocked_accounts)
+    assert actual in (2, 3)
+    impersonated_account = connected_provider.unlocked_accounts[0]
+    assert TEST_WALLET_ADDRESS == impersonated_account.address
+
+    # Ensure can use impersonated accounts.
+    other_account = accounts[0]
+    other_account.transfer(impersonated_account, "1 ETH")
+    assert impersonated_account.balance == int(1e18)
+    receipt = impersonated_account.transfer(accounts[0], "0.5 ETH")
+    assert not receipt.failed
