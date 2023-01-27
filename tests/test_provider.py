@@ -168,6 +168,7 @@ def test_unlock_account(connected_provider):
     assert isinstance(ape_account, ImpersonatedAccount)
 
 
+@pytest.mark.skip("Can unskip after 0.6 to make use of core-Impersonated account handling.")
 def test_unlock_account_from_config(connected_provider, accounts):
     # Wallet unlocked in ape-config.yaml file.
 

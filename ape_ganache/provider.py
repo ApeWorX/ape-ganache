@@ -296,34 +296,6 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
         return self._make_request("evm_revert", [snapshot_id])
 
-    def send_transaction(self, txn: TransactionAPI) -> ReceiptAPI:
-        """
-        Creates a new message call transaction or a contract creation
-        for signed transactions.
-        """
-
-        sender = txn.sender
-        if sender in self.unlocked_accounts:
-            # Allow for an unsigned transaction
-            txn = self.prepare_transaction(txn)
-            txn_dict = txn.dict()
-            txn_params = cast(TxParams, txn_dict)
-
-            try:
-                txn_hash = self.web3.eth.send_transaction(txn_params)
-            except ValueError as err:
-                raise self.get_virtual_machine_error(err) from err
-
-            receipt = self.get_receipt(
-                txn_hash.hex(), required_confirmations=txn.required_confirmations or 0
-            )
-            receipt.raise_for_status()
-
-        else:
-            receipt = super().send_transaction(txn)
-
-        return receipt
-
     def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
         result = self._make_request("debug_traceTransaction", [txn_hash])
         frames = result.get("structLogs", [])
