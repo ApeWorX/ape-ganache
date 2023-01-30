@@ -24,6 +24,9 @@ ganache:
       goerli:
         upstream_provider: alchemy
         block_number: 7849922
+  
+  miner:
+    gas_price: 2111222333
 
 test:
   # `false` because running pytest within pytest.

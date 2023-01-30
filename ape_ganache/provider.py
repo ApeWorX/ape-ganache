@@ -1,5 +1,6 @@
 import random
 import shutil
+from enum import Enum
 from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Dict, Iterator, List, Literal, Optional, Union, cast
@@ -41,6 +42,18 @@ DEFAULT_PORT = 8545
 GANACHE_CHAIN_ID = 1337
 
 
+class Hardforks(Enum):
+    CONSTANTINOPLE = "constantinople"
+    BYZANTIUM = "byzantium"
+    PETERSBURG = "petersburg"
+    ISTANBUL = "istanbul"
+    MUIR_GLACIER = "muirGlacier"
+    BERLIN = "berlin"
+    LONDON = "london"
+    ARROW_GLACIER = "arrowGlacier"
+    GRAY_GLACIER = "grayGlacier"
+
+
 class GanacheServerConfig(PluginConfig):
     port: Union[int, Literal["auto"]] = DEFAULT_PORT
 
@@ -52,6 +65,14 @@ class GanacheWalletConfig(PluginConfig):
 class GanacheForkConfig(PluginConfig):
     upstream_provider: Optional[str] = None  # Default is to use default upstream provider
     block_number: Optional[int] = None
+
+
+class GanacheMinerConfig(PluginConfig):
+    gas_price: int = 2_000_000_000
+
+
+class GanacheChainConfig(PluginConfig):
+    hardfork: Hardforks = Hardforks.LONDON
 
 
 class GanacheNetworkConfig(PluginConfig):
@@ -70,6 +91,8 @@ class GanacheNetworkConfig(PluginConfig):
     # Retry strategy configs, try increasing these if you're getting GanacheSubprocessError
     request_timeout: int = 30
     fork_request_timeout: int = 300
+    miner: GanacheMinerConfig = GanacheMinerConfig()
+    chain: GanacheChainConfig = GanacheChainConfig()
 
 
 def _call(*args):
@@ -268,6 +291,12 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             str(self.number_of_accounts),
             "--wallet.hdPath",
             "m/44'/60'/0'",
+            "--chain.hardfork",
+            self.config.chain.hardfork.value,
+            "--miner.defaultGasPrice",
+            str(self.config.miner.gas_price),
+            "--chain.vmErrorsOnRPCResponse",
+            "true",
         ]
         for account in self.unlocked_accounts:
             cmd.extend(("--wallet.unlockedAccounts", account.address))
