@@ -8,10 +8,8 @@ from ape.api import (
     ImpersonatedAccount,
     PluginConfig,
     ProviderAPI,
-    ReceiptAPI,
     SubprocessProvider,
     TestProviderAPI,
-    TransactionAPI,
     UpstreamProvider,
     Web3Provider,
 )
@@ -34,7 +32,6 @@ from web3.exceptions import ExtraDataLengthError
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 from web3.middleware import geth_poa_middleware
 from web3.middleware.validation import MAX_EXTRADATA_LENGTH
-from web3.types import TxParams
 
 from .exceptions import GanacheNotInstalledError, GanacheProviderError
 
