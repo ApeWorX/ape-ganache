@@ -22,11 +22,13 @@ from ape.exceptions import (
     VirtualMachineError,
 )
 from ape.logging import logger
-from ape.types import AddressType, SnapshotID
+from ape.types import AddressType, CallTreeNode, SnapshotID, TraceFrame
 from ape.utils import cached_property
 from ape_test import Config as TestConfig
 from eth_utils import to_checksum_address, to_hex
-from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
+from evm_trace import CallType
+from evm_trace import TraceFrame as EvmTraceFrame
+from evm_trace import get_calltree_from_geth_trace
 from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
 from web3.exceptions import ExtraDataLengthError
@@ -323,10 +325,14 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         return self._make_request("evm_revert", [snapshot_id])
 
     def get_transaction_trace(self, txn_hash: str) -> Iterator[TraceFrame]:
+        for trace in self._get_transaction_trace(txn_hash):
+            yield self._create_trace_frame(trace)
+
+    def _get_transaction_trace(self, txn_hash: str) -> Iterator[EvmTraceFrame]:
         result = self._make_request("debug_traceTransaction", [txn_hash])
         frames = result.get("structLogs", [])
         for frame in frames:
-            yield TraceFrame(**frame)
+            yield EvmTraceFrame(**frame)
 
     def get_call_tree(self, txn_hash: str) -> CallTreeNode:
         receipt = self.chain_manager.get_receipt(txn_hash)
@@ -336,26 +342,26 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         data_gas = sum([4 if x == 0 else 16 for x in receipt.data])
         method_gas_cost = receipt.gas_used - 21_000 - data_gas
 
-        root_node_kwargs = {
-            "gas_cost": method_gas_cost,
-            "gas_limit": receipt.gas_limit,
-            "address": receipt.receiver,
-            "calldata": receipt.data,
-            "value": receipt.value,
-            "call_type": CallType.CALL,
-            "failed": receipt.failed,
-        }
-        tree = get_calltree_from_geth_trace(receipt.trace, **root_node_kwargs)
-
+        evm_call = get_calltree_from_geth_trace(
+            self._get_transaction_trace(txn_hash),
+            gas_cost=method_gas_cost,
+            gas_limit=receipt.gas_limit,
+            address=receipt.receiver,
+            calldata=receipt.data,
+            value=receipt.value,
+            call_type=CallType.CALL,
+            failed=receipt.failed,
+        )
         # Strange bug in Ganache where sub-calls REVERT trickles to the top-level
         # CALL when it is not supposed to. Reset `failed`.
-        tree.failed = receipt.failed
+        evm_call.failed = receipt.failed
 
-        return tree
+        return self._create_call_tree_node(evm_call, txn_hash=txn_hash)
 
-    def get_virtual_machine_error(self, exception: Exception) -> VirtualMachineError:
+    def get_virtual_machine_error(self, exception: Exception, **kwargs) -> VirtualMachineError:
+        txn = kwargs.get("txn")
         if not len(exception.args):
-            return VirtualMachineError(base_err=exception)
+            return VirtualMachineError(base_err=exception, txn=txn)
 
         err_data = exception.args[0]
         if isinstance(err_data, dict):
@@ -364,10 +370,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             # The message is already extract during gas estimation
             message = str(err_data)
         else:
-            return VirtualMachineError(base_err=exception)
+            return VirtualMachineError(base_err=exception, txn=txn)
 
         if not message:
-            return VirtualMachineError(base_err=exception)
+            return VirtualMachineError(base_err=exception, txn=txn)
 
         # Handle `ContactLogicError` similarly to other providers in `ape`.
         # by stripping off the unnecessary prefix that ganache has on reverts.
@@ -381,15 +387,15 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                 break
 
         if not is_revert:
-            return VirtualMachineError(message=message)
+            return VirtualMachineError(message, txn=txn)
 
         elif message == "revert":
-            return ContractLogicError()
+            return ContractLogicError(txn=txn)
 
         elif message.startswith("revert "):
             message = message.replace("revert ", "")
 
-        return ContractLogicError(revert_message=message)
+        return ContractLogicError(revert_message=message, txn=txn)
 
     def unlock_account(self, address: AddressType) -> bool:
         self._make_request("evm_addAccount", [address, ""])

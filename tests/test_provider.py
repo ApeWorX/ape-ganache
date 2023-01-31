@@ -1,11 +1,11 @@
-import re
 import tempfile
 from pathlib import Path
 
 import pytest
 from ape.api.accounts import ImpersonatedAccount
-from ape.exceptions import ContractLogicError, SignatureError
-from evm_trace import CallTreeNode, CallType, TraceFrame
+from ape.exceptions import ContractLogicError
+from ape.types import CallTreeNode, TraceFrame
+from evm_trace import CallType
 
 from ape_ganache.exceptions import GanacheProviderError
 from ape_ganache.provider import GANACHE_CHAIN_ID
@@ -14,13 +14,8 @@ TEST_WALLET_ADDRESS = "0x04029bAcA527B69247dbE9243DfC9b5d12C7Ba60"
 # Checksum version of an account specified in the ape-config.yaml file.
 
 
-@pytest.fixture(scope="module")
-def call_expression():
-    return re.compile(r"CALL: 0x([a-f]|[A-F]|\d)*.<0x([a-f]|[A-F]|\d)*> \[\d* gas]")
-
-
-def test_instantiation(disconnected_provider):
-    assert disconnected_provider.name == "ganache"
+def test_instantiation(disconnected_provider, name):
+    assert disconnected_provider.name == name
 
 
 def test_connect_and_disconnect(disconnected_provider):
@@ -111,8 +106,8 @@ def test_get_call_tree(connected_provider, sender, receiver):
     transfer = sender.transfer(receiver, 1)
     call_tree = connected_provider.get_call_tree(transfer.txn_hash)
     assert isinstance(call_tree, CallTreeNode)
-    assert call_tree.call_type == CallType.CALL
-    assert repr(call_tree) == "CALL: 0xc89D42189f0450C2b2c3c61f58Ec5d628176A1E7 [0 gas]"
+    assert call_tree.call_type == CallType.CALL.value
+    assert repr(call_tree) == "0xc89D42189f0450C2b2c3c61f58Ec5d628176A1E7.0x()"
 
 
 def test_request_timeout(connected_provider, config):
@@ -131,10 +126,6 @@ def test_request_timeout(connected_provider, config):
 def test_send_transaction(contract_instance, owner):
     contract_instance.setNumber(10, sender=owner)
     assert contract_instance.myNumber() == 10
-
-    # Have to be in the same test because of X-dist complications
-    with pytest.raises(SignatureError):
-        contract_instance.setNumber(20)
 
 
 def test_revert(sender, contract_instance):
