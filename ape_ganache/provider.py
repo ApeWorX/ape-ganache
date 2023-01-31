@@ -310,9 +310,9 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         # CALL when it is not supposed to. Reset `failed`.
         tree.failed = receipt.failed
 
-        return tree
+        return self._create_call_tree_node(tree, txn_hash)
 
-    def get_virtual_machine_error(self, exception: Exception) -> VirtualMachineError:
+    def get_virtual_machine_error(self, exception: Exception, **kwargs) -> VirtualMachineError:
         if not len(exception.args):
             return VirtualMachineError(base_err=exception)
 
