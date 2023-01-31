@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 from ape.api.accounts import ImpersonatedAccount
-from ape.exceptions import ContractLogicError, SignatureError
+from ape.exceptions import ContractLogicError
 from ape.types import CallTreeNode, TraceFrame
 from evm_trace import CallType
 
