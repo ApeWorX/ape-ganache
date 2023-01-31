@@ -6,6 +6,7 @@ from subprocess import PIPE, Popen
 from typing import Dict, Iterator, List, Literal, Optional, Union, cast
 
 from ape.api import (
+    ImpersonatedAccount,
     PluginConfig,
     ProviderAPI,
     SubprocessProvider,
@@ -13,11 +14,18 @@ from ape.api import (
     UpstreamProvider,
     Web3Provider,
 )
-from ape.exceptions import ContractLogicError, ProviderError, SubprocessError, VirtualMachineError
+from ape.exceptions import (
+    ContractLogicError,
+    ConversionError,
+    ProviderError,
+    SubprocessError,
+    VirtualMachineError,
+)
 from ape.logging import logger
 from ape.types import AddressType, SnapshotID
 from ape.utils import cached_property
 from ape_test import Config as TestConfig
+from eth_utils import to_checksum_address, to_hex
 from evm_trace import CallTreeNode, CallType, TraceFrame, get_calltree_from_geth_trace
 from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
@@ -50,6 +58,10 @@ class GanacheServerConfig(PluginConfig):
     port: Union[int, Literal["auto"]] = DEFAULT_PORT
 
 
+class GanacheWalletConfig(PluginConfig):
+    unlocked_accounts: List[str] = []
+
+
 class GanacheForkConfig(PluginConfig):
     upstream_provider: Optional[str] = None  # Default is to use default upstream provider
     block_number: Optional[int] = None
@@ -72,6 +84,10 @@ class GanacheNetworkConfig(PluginConfig):
     # Used only in GanacheForkProvider.
     fork: Dict[str, Dict[str, GanacheForkConfig]] = {}
 
+    wallet: GanacheWalletConfig = GanacheWalletConfig()
+    # wallet allows setting values in --wallet.* command arguments
+    # Use the ``test`` config to set the mnemonic, HD Path, and number of accounts.
+
     # Retry strategy configs, try increasing these if you're getting GanacheSubprocessError
     request_timeout: int = 30
     fork_request_timeout: int = 300
@@ -90,6 +106,27 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
     @cached_property
     def _test_config(self) -> TestConfig:
         return cast(TestConfig, self.config_manager.get_config("test"))
+
+    @cached_property
+    def unlocked_accounts(self) -> List[ImpersonatedAccount]:
+        addresses: List[AddressType] = []
+        for address in self.config.wallet.unlocked_accounts:
+            if isinstance(address, str) and address.isnumeric():
+                # User didn't put quotes around addresses in config file
+                address_str = to_hex(int(address)).replace("0x", "")
+                address_str = f"0x{'0' * (40 - len(address_str))}{address_str}"
+                address = to_checksum_address(address_str)
+                addresses.append(address)
+            else:
+                try:
+                    address = self.conversion_manager.convert(address, AddressType)
+                except ConversionError as err:
+                    logger.error(str(err))
+                    continue
+
+                addresses.append(address)
+
+        return [ImpersonatedAccount(raw_address=x) for x in addresses]
 
     @property
     def mnemonic(self) -> str:
@@ -244,7 +281,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         super().disconnect()
 
     def build_command(self) -> List[str]:
-        return [
+        cmd = [
             self.ganache_bin,
             "--server.port",
             str(self.port),
@@ -261,6 +298,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             "--chain.vmErrorsOnRPCResponse",
             "true",
         ]
+        for account in self.unlocked_accounts:
+            cmd.extend(("--wallet.unlockedAccounts", account.address))
+
+        return cmd
 
     def set_timestamp(self, new_timestamp: int):
         new_timestamp *= 10**3  # Convert to milliseconds
