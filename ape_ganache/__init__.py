@@ -19,9 +19,10 @@ def config_class():
 @plugins.register(plugins.ProviderPlugin)
 def providers():
     yield "ethereum", LOCAL_NETWORK_NAME, GanacheProvider
+
     for network in NETWORKS:
         yield "ethereum", f"{network}-fork", GanacheForkProvider
-        
+
     yield "fantom", LOCAL_NETWORK_NAME, GanacheProvider
     yield "fantom", "opera-fork", GanacheForkProvider
     yield "fantom", "testnet-fork", GanacheForkProvider
