@@ -139,6 +139,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         return self._test_config.number_of_accounts
 
     @property
+    def hd_path(self) -> str:
+        return self._test_config.hd_path.replace("/{}", "")
+
+    @property
     def process_name(self) -> str:
         return "Ganache"
 
@@ -292,7 +296,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             "--wallet.totalAccounts",
             str(self.number_of_accounts),
             "--wallet.hdPath",
-            "m/44'/60'/0'",
+            str(self.hd_path),
             "--chain.hardfork",
             self.config.chain.hardfork.value,
             "--miner.defaultGasPrice",
@@ -302,7 +306,6 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         ]
         for account in self.unlocked_accounts:
             cmd.extend(("--wallet.unlockedAccounts", account.address))
-
         return cmd
 
     def set_timestamp(self, new_timestamp: int):
