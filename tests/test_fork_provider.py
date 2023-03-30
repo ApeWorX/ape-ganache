@@ -104,7 +104,6 @@ def test_get_receipt(mainnet_fork_provider, mainnet_fork_contract_instance, owne
 def test_unlock_account_with_multiple_providers(
     networks, connected_provider, mainnet_fork_port, goerli_fork_port
 ):
-
     with networks.ethereum.mainnet_fork.use_provider(
         "ganache", provider_settings={"port": mainnet_fork_port}
     ):
