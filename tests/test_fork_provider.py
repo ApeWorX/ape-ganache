@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from ape.api.accounts import ImpersonatedAccount
 from ape.api.networks import LOCAL_NETWORK_NAME
+from ape.contracts import ContractInstance
 from ape.exceptions import ContractLogicError
 from ape_ethereum.ecosystem import NETWORKS
 
@@ -118,3 +119,13 @@ def test_unlock_account_with_multiple_providers(
 
     imp_acc = connected_provider.account_manager[TEST_ADDRESS]
     assert isinstance(imp_acc, ImpersonatedAccount)
+
+
+@pytest.mark.fork
+def test_connect_to_polygon(networks, owner, contract_container):
+    """
+    Ensures we don't get PoA middleware issue.
+    """
+    with networks.polygon.mumbai_fork.use_provider("ganache"):
+        contract = owner.deploy(contract_container)
+        assert isinstance(contract, ContractInstance)  # Didn't fail

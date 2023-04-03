@@ -12,6 +12,7 @@ extras_require = {
         "hypothesis>=6.2.0,<7.0",  # Strategy-based fuzzer
         "ape-alchemy",  # For running fork tests
         "ape-ens",  # Needed for testing ENS conversion types
+        "ape-polygon",  # Needed for polygon fork testing
     ],
     "lint": [
         "black>=22.12.0",  # auto-formatter and linter

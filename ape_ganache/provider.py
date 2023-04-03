@@ -240,18 +240,19 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                 f"Port '{self.port}' already in use by another process that isn't a Ganache server."
             )
 
-        # Handle if using PoA
-        try:
-            block = self.web3.eth.get_block(0)
-        except ExtraDataLengthError:
-            began_poa = True
-        else:
-            began_poa = (
-                "proofOfAuthorityData" in block
-                or len(block.get("extraData", "")) > MAX_EXTRADATA_LENGTH
-            )
+        def check_poa(block_id) -> bool:
+            try:
+                block = self.web3.eth.get_block(block_id)
+            except ExtraDataLengthError:
+                return True
+            else:
+                return (
+                    "proofOfAuthorityData" in block
+                    or len(block.get("extraData", "")) > MAX_EXTRADATA_LENGTH
+                )
 
-        if began_poa:
+        # Handle if using PoA
+        if any(map(check_poa, (0, "latest"))):
             self._web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
     def _start(self):
@@ -437,14 +438,10 @@ class GanacheForkProvider(GanacheProvider):
 
     @cached_property
     def _upstream_provider(self) -> ProviderAPI:
-        # NOTE: if 'upstream_provider_name' is 'None', this gets the default mainnet provider.
-        if self.network.ecosystem.name != "ethereum":
-            raise GanacheProviderError("Fork mode only works for the ethereum ecosystem.")
-
-        mainnet = self.network.ecosystem.mainnet
+        upstream_network = self.network.ecosystem.networks[self._upstream_network_name]
         upstream_provider_name = self._fork_config.upstream_provider
-        upstream_provider = mainnet.get_provider(provider_name=upstream_provider_name)
-        return upstream_provider
+        # NOTE: if 'upstream_provider_name' is 'None', this gets the default upstream provider.
+        return upstream_network.get_provider(provider_name=upstream_provider_name)
 
     def connect(self):
         super().connect()
