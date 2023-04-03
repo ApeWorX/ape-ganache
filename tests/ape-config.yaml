@@ -6,6 +6,12 @@ ethereum:
   local:
     default_provider: ganache
 
+polygon:
+  local:
+    default_provider: ganache
+  mumbai:
+    default_provider: alchemy
+
 ganache:
   request_timeout: 29
   fork_request_timeout: 360
