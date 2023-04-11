@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os.path
 
 from setuptools import find_packages, setup
 
@@ -55,11 +54,7 @@ extras_require["dev"] = (
     + extras_require["dev"]
 )
 
-readme_path, readme_content_type = "./README.md", "text/x-rst"
-if os.path.exists("./README.md"):
-    readme_path, readme_content_type = "./README.md", "text/markdown"
-
-with open(readme_path) as readme:
+with open("./README.md") as readme:
     long_description = readme.read()
 
 
@@ -69,7 +64,7 @@ setup(
     setup_requires=["setuptools_scm"],
     description="""ape-ganache: Ape network provider for Ganache""",
     long_description=long_description,
-    long_description_content_type=readme_content_type,
+    long_description_content_type="text/markdown",
     author="ApeWorX Ltd.",
     author_email="admin@apeworx.io",
     url="https://github.com/ApeWorX/ape-ganache",
