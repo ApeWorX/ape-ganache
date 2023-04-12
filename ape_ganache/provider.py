@@ -392,12 +392,14 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             return VirtualMachineError(message, txn=txn)
 
         elif message == "revert":
-            return ContractLogicError(txn=txn)
+            err = ContractLogicError(txn=txn)
+            return self.compiler_manager.enrich_error(err)
 
         elif message.startswith("revert "):
             message = message.replace("revert ", "")
 
-        return ContractLogicError(revert_message=message, txn=txn)
+        err = ContractLogicError(revert_message=message, txn=txn)
+        return self.compiler_manager.enrich_error(err)
 
     def unlock_account(self, address: AddressType) -> bool:
         self._make_request("evm_addAccount", [address, ""])
