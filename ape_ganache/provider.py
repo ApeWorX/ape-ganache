@@ -1,6 +1,7 @@
 import random
 import shutil
 from enum import Enum
+from itertools import tee
 from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Dict, Iterator, List, Literal, Optional, Union, cast
@@ -361,25 +362,44 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         return self._create_call_tree_node(evm_call, txn_hash=txn_hash)
 
     def get_virtual_machine_error(self, exception: Exception, **kwargs) -> VirtualMachineError:
-        txn = kwargs.get("txn")
         if not len(exception.args):
-            return VirtualMachineError(base_err=exception, txn=txn)
+            return VirtualMachineError(base_err=exception, **kwargs)
 
+        ganache_prefix = "VM Exception while processing transaction: "
         err_data = exception.args[0]
         if isinstance(err_data, dict):
             message = str(err_data.get("message"))
+
+            if err_data.get("data", {}).get("hash") and message == f"{ganache_prefix}revert":
+                txn_hash = err_data.get("data", {}).get("hash")
+                data = {}
+
+                if "trace" in kwargs:
+                    kwargs["trace"], new_trace = tee(kwargs["trace"])
+                    data = list(new_trace)[-1].raw
+
+                else:
+                    try:
+                        data = list(self.get_transaction_trace(txn_hash))[-1].raw
+                    except Exception:
+                        pass
+
+                if data.get("op") == "REVERT":
+                    err_selector_and_inputs = "".join([x[2:] for x in data["memory"][4:]])
+                    if err_selector_and_inputs:
+                        message = f"{ganache_prefix}0x{err_selector_and_inputs}"
+
         elif isinstance(err_data, str):
             # The message is already extract during gas estimation
             message = str(err_data)
         else:
-            return VirtualMachineError(base_err=exception, txn=txn)
+            return VirtualMachineError(base_err=exception, **kwargs)
 
         if not message:
-            return VirtualMachineError(base_err=exception, txn=txn)
+            return VirtualMachineError(base_err=exception, **kwargs)
 
         # Handle `ContactLogicError` similarly to other providers in `ape`.
         # by stripping off the unnecessary prefix that ganache has on reverts.
-        ganache_prefix = "VM Exception while processing transaction: "
         prefixes = (f"execution reverted: {ganache_prefix}", ganache_prefix)
         is_revert = False
         for prefix in prefixes:
@@ -389,15 +409,17 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                 break
 
         if not is_revert:
-            return VirtualMachineError(message, txn=txn)
+            return VirtualMachineError(message, **kwargs)
 
-        elif message == "revert":
-            return ContractLogicError(txn=txn)
+        if message == "revert":
+            err = ContractLogicError(**kwargs)
+            return self.compiler_manager.enrich_error(err)
 
         elif message.startswith("revert "):
             message = message.replace("revert ", "")
 
-        return ContractLogicError(revert_message=message, txn=txn)
+        err = ContractLogicError(revert_message=message, **kwargs)
+        return self.compiler_manager.enrich_error(err)
 
     def unlock_account(self, address: AddressType) -> bool:
         self._make_request("evm_addAccount", [address, ""])
