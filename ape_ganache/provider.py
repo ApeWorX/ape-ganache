@@ -1,6 +1,7 @@
 import random
 import shutil
 from enum import Enum
+from itertools import tee
 from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Dict, Iterator, List, Literal, Optional, Union, cast
@@ -372,15 +373,19 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             if err_data.get("data", {}).get("hash") and message == f"{ganache_prefix}revert":
                 txn_hash = err_data.get("data", {}).get("hash")
                 data = {}
-                try:
-                    data = list(self.get_transaction_trace(txn_hash))[-1].raw
-                except Exception:
-                    pass
+
+                if "trace" in kwargs:
+                    kwargs["trace"], new_trace = tee(kwargs["trace"])
+                    data = list(new_trace)[-1].raw
+
+                else:
+                    try:
+                        data = list(self.get_transaction_trace(txn_hash))[-1].raw
+                    except Exception:
+                        pass
 
                 if data.get("op") == "REVERT":
-                    err_selector_and_inputs = "0x" + "".join(
-                        [x[2:] for x in data["memory"][4:]]
-                    )
+                    err_selector_and_inputs = "0x" + "".join([x[2:] for x in data["memory"][4:]])
                     message = f"{ganache_prefix}{err_selector_and_inputs}"
 
         elif isinstance(err_data, str):

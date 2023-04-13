@@ -177,3 +177,11 @@ def test_unlock_account_from_config(connected_provider, accounts):
     assert impersonated_account.balance == int(1e18)
     receipt = impersonated_account.transfer(accounts[0], "0.5 ETH")
     assert not receipt.failed
+
+
+def test_revert_error(error_contract, not_owner):
+    """
+    Test matching a revert custom Solidity error.
+    """
+    with pytest.raises(error_contract.Unauthorized):
+        error_contract.withdraw(sender=not_owner)
