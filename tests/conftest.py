@@ -139,7 +139,6 @@ def contract_instance(owner, contract_container, connected_provider):
 @pytest.fixture
 def error_contract_container(get_contract_type):
     ct = get_contract_type("has_error")
-    ct.source_id = "has_error.json"  # Use JSON compiler for error enrichment.
     return ContractContainer(ct)
 
 
