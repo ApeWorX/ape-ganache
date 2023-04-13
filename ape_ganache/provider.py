@@ -371,24 +371,17 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
             if err_data.get("data", {}).get("hash") and message == f"{ganache_prefix}revert":
                 txn_hash = err_data.get("data", {}).get("hash")
-                receipt = None
+                data = {}
                 try:
-                    receipt = self.get_receipt(txn_hash)
+                    data = list(self.get_transaction_trace(txn_hash))[-1].raw
                 except Exception:
                     pass
 
-                if receipt is not None:
-                    data = {}
-                    try:
-                        data = list(self.get_transaction_trace(txn_hash))[-1].raw
-                    except Exception:
-                        pass
-
-                    if data.get("op") == "REVERT":
-                        err_selector_and_inputs = "0x" + "".join(
-                            [x[2:] for x in data["memory"][4:]]
-                        )
-                        message = f"{ganache_prefix}{err_selector_and_inputs}"
+                if data.get("op") == "REVERT":
+                    err_selector_and_inputs = "0x" + "".join(
+                        [x[2:] for x in data["memory"][4:]]
+                    )
+                    message = f"{ganache_prefix}{err_selector_and_inputs}"
 
         elif isinstance(err_data, str):
             # The message is already extract during gas estimation
