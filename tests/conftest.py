@@ -122,7 +122,7 @@ def get_contract_type():
 
 @pytest.fixture(params=("solidity", "vyper"))
 def contract_type(request, get_contract_type) -> ContractType:
-    name = f"{request.param}_contract.json"
+    name = f"{request.param}_contract"
     return get_contract_type(name)
 
 

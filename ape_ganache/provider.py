@@ -385,8 +385,9 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                         pass
 
                 if data.get("op") == "REVERT":
-                    err_selector_and_inputs = "0x" + "".join([x[2:] for x in data["memory"][4:]])
-                    message = f"{ganache_prefix}{err_selector_and_inputs}"
+                    err_selector_and_inputs = "".join([x[2:] for x in data["memory"][4:]])
+                    if err_selector_and_inputs:
+                        message = f"{ganache_prefix}0x{err_selector_and_inputs}"
 
         elif isinstance(err_data, str):
             # The message is already extract during gas estimation
