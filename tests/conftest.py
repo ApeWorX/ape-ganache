@@ -127,6 +127,16 @@ def contract_type(request, get_contract_type) -> ContractType:
 
 
 @pytest.fixture
+def contract_container(contract_type) -> ContractContainer:
+    return ContractContainer(contract_type=contract_type)
+
+
+@pytest.fixture
+def contract_instance(owner, contract_container, connected_provider):
+    return owner.deploy(contract_container)
+
+
+@pytest.fixture
 def error_contract_container(get_contract_type):
     ct = get_contract_type("has_error")
     ct.source_id = "has_error.json"  # Use JSON compiler for error enrichment.
@@ -136,16 +146,6 @@ def error_contract_container(get_contract_type):
 @pytest.fixture
 def error_contract(owner, error_contract_container):
     return owner.deploy(error_contract_container)
-
-
-@pytest.fixture
-def contract_container(contract_type) -> ContractContainer:
-    return ContractContainer(contract_type=contract_type)
-
-
-@pytest.fixture
-def contract_instance(owner, contract_container, connected_provider):
-    return owner.deploy(contract_container)
 
 
 @pytest.fixture(scope="session")
