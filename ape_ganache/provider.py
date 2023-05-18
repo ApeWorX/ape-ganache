@@ -129,6 +129,9 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
                 addresses.append(address)
 
+        # Include RPC unlocked accounts
+        addresses.extend(self.account_manager.test_accounts._impersonated_accounts)
+
         return [ImpersonatedAccount(raw_address=x) for x in addresses]
 
     @property
