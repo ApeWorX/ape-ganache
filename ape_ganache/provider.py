@@ -129,12 +129,10 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
                 addresses.append(address)
 
-        accounts = [ImpersonatedAccount(raw_address=x) for x in addresses]
-
         # Include RPC unlocked accounts
-        accounts.extend(self.account_manager.test_accounts._impersonated_accounts)
+        addresses.extend(self.account_manager.test_accounts._impersonated_accounts)
 
-        return accounts
+        return [ImpersonatedAccount(raw_address=x) for x in addresses]
 
     @property
     def mnemonic(self) -> str:
