@@ -348,14 +348,23 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
         data_gas = sum([4 if x == 0 else 16 for x in receipt.data])
         method_gas_cost = receipt.gas_used - 21_000 - data_gas
 
+        if receipt.contract_address:
+            # Deploy txn
+            address = receipt.contract_address
+            call_type = CallType.CREATE
+        else:
+            # Invoke txn
+            address = receipt.receiver
+            call_type = CallType.CALL
+
         evm_call = get_calltree_from_geth_trace(
             self._get_transaction_trace(txn_hash),
             gas_cost=method_gas_cost,
             gas_limit=receipt.gas_limit,
-            address=receipt.receiver,
+            address=address,
             calldata=receipt.data,
             value=receipt.value,
-            call_type=CallType.CALL,
+            call_type=call_type,
             failed=receipt.failed,
         )
         # Strange bug in Ganache where sub-calls REVERT trickles to the top-level
