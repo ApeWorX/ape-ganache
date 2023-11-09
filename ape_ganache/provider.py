@@ -6,13 +6,13 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Dict, Iterator, List, Literal, Optional, Union, cast
 
+from ape._pydantic_compat import root_validator
 from ape.api import (
+    ForkedNetworkAPI,
     ImpersonatedAccount,
     PluginConfig,
-    ProviderAPI,
     SubprocessProvider,
     TestProviderAPI,
-    UpstreamProvider,
     Web3Provider,
 )
 from ape.exceptions import (
@@ -110,10 +110,14 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
     def _test_config(self) -> TestConfig:
         return cast(TestConfig, self.config_manager.get_config("test"))
 
+    @property
+    def connection_id(self) -> Optional[str]:
+        return f"{self.network_choice}:{self.port}"
+
     @cached_property
     def unlocked_accounts(self) -> List[ImpersonatedAccount]:
         addresses: List[AddressType] = []
-        for address in self.config.wallet.unlocked_accounts:
+        for address in self.settings.wallet.unlocked_accounts:
             if isinstance(address, str) and address.isnumeric():
                 # User didn't put quotes around addresses in config file
                 address_str = to_hex(int(address)).replace("0x", "")
@@ -152,7 +156,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
     @property
     def timeout(self) -> int:
-        return self.config.request_timeout
+        return self.settings.request_timeout
 
     @cached_property
     def ganache_bin(self) -> str:
@@ -193,7 +197,13 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
 
         # NOTE: Must set port before calling 'super().connect()'.
         if not self.port:
-            self.port = self.provider_settings.get("port", self.config.server.port)
+            if "port" in self.provider_settings:
+                self.port = self.provider_settings.pop("port")
+            else:
+                self.port = (
+                    self.provider_settings.get("server", {}).get("port")
+                    or self.settings.server.port
+                )
 
         if self.is_connected:
             # Connects to already running process
@@ -212,7 +222,7 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
                         f"Connecting to existing '{self.process_name}' at port '{self.port}'."
                     )
             else:
-                for _ in range(self.config.process_attempts):
+                for _ in range(self.settings.process_attempts):
                     try:
                         self._start()
                         break
@@ -301,9 +311,9 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
             "--wallet.hdPath",
             str(self.hd_path),
             "--chain.hardfork",
-            self.config.chain.hardfork.value,
+            self.settings.chain.hardfork.value,
             "--miner.defaultGasPrice",
-            str(self.config.miner.gas_price),
+            str(self.settings.miner.gas_price),
             "--chain.vmErrorsOnRPCResponse",
             "true",
         ]
@@ -448,9 +458,30 @@ class GanacheForkProvider(GanacheProvider):
     to use as your archive node.
     """
 
+    @root_validator()
+    def set_upstream_provider(cls, value):
+        network = value["network"]
+        adhoc_settings = value.get("provider_settings", {}).get("fork", {})
+        ecosystem_name = network.ecosystem.name
+        plugin_config = cls.config_manager.get_config(value["name"])
+        config_settings = plugin_config.get("fork", {})
+
+        def _get_upstream(data: Dict) -> Optional[str]:
+            return (
+                data.get(ecosystem_name, {})
+                .get(network.name.replace("-fork", ""), {})
+                .get("upstream_provider")
+            )
+
+        # If upstream provider set anywhere in provider settings, ignore.
+        if name := (_get_upstream(adhoc_settings) or _get_upstream(config_settings)):
+            getattr(network.ecosystem.config, network.name).upstream_provider = name
+
+        return value
+
     @property
     def timeout(self) -> int:
-        return self.config.fork_request_timeout
+        return self.settings.fork_request_timeout
 
     @property
     def _upstream_network_name(self) -> str:
@@ -458,61 +489,48 @@ class GanacheForkProvider(GanacheProvider):
 
     @cached_property
     def _fork_config(self) -> GanacheForkConfig:
-        config = cast(GanacheNetworkConfig, self.config)
+        settings = cast(GanacheNetworkConfig, self.settings)
 
         ecosystem_name = self.network.ecosystem.name
-        if ecosystem_name not in config.fork:
+        if ecosystem_name not in settings.fork:
             return GanacheForkConfig()  # Just use default
 
         network_name = self._upstream_network_name
-        if network_name not in config.fork[ecosystem_name]:
+        if network_name not in settings.fork[ecosystem_name]:
             return GanacheForkConfig()  # Just use default
 
-        return config.fork[ecosystem_name][network_name]
+        return settings.fork[ecosystem_name][network_name]
 
-    @cached_property
-    def _upstream_provider(self) -> ProviderAPI:
-        upstream_network = self.network.ecosystem.networks[self._upstream_network_name]
-        upstream_provider_name = self._fork_config.upstream_provider
-        # NOTE: if 'upstream_provider_name' is 'None', this gets the default upstream provider.
-        return upstream_network.get_provider(provider_name=upstream_provider_name)
+    @property
+    def forked_network(self) -> ForkedNetworkAPI:
+        return cast(ForkedNetworkAPI, self.network)
 
     def connect(self):
         super().connect()
 
-        # Verify that we're connected to a Foundry node with fork mode.
-        upstream_provider = self._upstream_provider
-        upstream_provider.connect()
-        try:
-            upstream_genesis_block_hash = upstream_provider.get_block(0).hash
-        except ExtraDataLengthError as err:
-            if isinstance(upstream_provider, Web3Provider):
-                logger.error(
-                    f"Upstream provider '{upstream_provider.name}' missing Geth PoA middleware."
-                )
-                upstream_provider.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # If using the provider config for upstream_provider,
+        # set the network one in this session, so other features work in core.
+        with self.forked_network.use_upstream_provider() as upstream_provider:
+            try:
                 upstream_genesis_block_hash = upstream_provider.get_block(0).hash
-            else:
-                raise ProviderError(f"Unable to get genesis block: {err}.") from err
+            except ExtraDataLengthError as err:
+                if isinstance(upstream_provider, Web3Provider):
+                    logger.error(
+                        f"Upstream provider '{upstream_provider.name}' missing Geth PoA middleware."
+                    )
+                    upstream_provider.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                    upstream_genesis_block_hash = upstream_provider.get_block(0).hash
+                else:
+                    raise GanacheProviderError(f"Unable to get genesis block: {err}.") from err
 
-        upstream_provider.disconnect()
         if self.get_block(0).hash != upstream_genesis_block_hash:
             logger.warning(
                 "Upstream network has mismatching genesis block. "
-                "This could be an issue with ganache."
+                "This could be an issue with foundry."
             )
 
     def build_command(self) -> List[str]:
-        if not isinstance(self._upstream_provider, UpstreamProvider):
-            raise GanacheProviderError(
-                f"Provider '{self._upstream_provider.name}' is not an upstream provider."
-            )
-
-        # Using `getattr` because some IDE type checkers get confused.
-        fork_url = getattr(self._upstream_provider, "connection_str")
-        if not fork_url:
-            raise GanacheProviderError("Upstream provider does not have a ``connection_str``.")
-
+        fork_url = self.forked_network.upstream_provider.connection_str
         if fork_url.replace("localhost", "127.0.0.1") == self.uri:
             raise GanacheProviderError(
                 "Invalid upstream-fork URL. Can't be same as local Ganache node."
