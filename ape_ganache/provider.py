@@ -6,14 +6,12 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Dict, Iterator, List, Literal, Optional, Union, cast
 
-from ape._pydantic_compat import root_validator
 from ape.api import (
     ForkedNetworkAPI,
     ImpersonatedAccount,
     PluginConfig,
     SubprocessProvider,
     TestProviderAPI,
-    Web3Provider,
 )
 from ape.exceptions import (
     ContractLogicError,
@@ -25,12 +23,14 @@ from ape.exceptions import (
 from ape.logging import logger
 from ape.types import AddressType, CallTreeNode, SnapshotID, TraceFrame
 from ape.utils import cached_property
-from ape_test import Config as TestConfig
+from ape_ethereum.provider import Web3Provider
+from ape_test import ApeTestConfig
+from eth_pydantic_types import HexBytes
 from eth_utils import to_checksum_address, to_hex
 from evm_trace import CallType
 from evm_trace import TraceFrame as EvmTraceFrame
 from evm_trace import get_calltree_from_geth_trace
-from hexbytes import HexBytes
+from pydantic import model_validator
 from web3 import HTTPProvider, Web3
 from web3.exceptions import ExtraDataLengthError
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
@@ -62,7 +62,7 @@ class GanacheServerConfig(PluginConfig):
 
 
 class GanacheWalletConfig(PluginConfig):
-    unlocked_accounts: List[str] = []
+    unlocked_accounts: List[Union[str, HexBytes]] = []
 
 
 class GanacheForkConfig(PluginConfig):
@@ -107,8 +107,8 @@ class GanacheProvider(SubprocessProvider, Web3Provider, TestProviderAPI):
     attempted_ports: List[int] = []
 
     @cached_property
-    def _test_config(self) -> TestConfig:
-        return cast(TestConfig, self.config_manager.get_config("test"))
+    def _test_config(self) -> ApeTestConfig:
+        return cast(ApeTestConfig, self.config_manager.get_config("test"))
 
     @property
     def connection_id(self) -> Optional[str]:
@@ -458,7 +458,8 @@ class GanacheForkProvider(GanacheProvider):
     to use as your archive node.
     """
 
-    @root_validator()
+    @model_validator(mode="before")
+    @classmethod
     def set_upstream_provider(cls, value):
         network = value["network"]
         adhoc_settings = value.get("provider_settings", {}).get("fork", {})

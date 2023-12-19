@@ -99,7 +99,7 @@ def test_get_transaction_trace(connected_provider, sender, receiver):
     transfer = sender.transfer(receiver, 1)
     frame_data = connected_provider.get_transaction_trace(transfer.txn_hash)
     for frame in frame_data:
-        assert TraceFrame.parse_obj(frame)
+        assert TraceFrame.model_validate(frame)
 
 
 def test_get_call_tree(connected_provider, sender, receiver):
@@ -107,7 +107,7 @@ def test_get_call_tree(connected_provider, sender, receiver):
     call_tree = connected_provider.get_call_tree(transfer.txn_hash)
     assert isinstance(call_tree, CallTreeNode)
     assert call_tree.call_type == CallType.CALL.value
-    assert repr(call_tree) == "0xc89D42189f0450C2b2c3c61f58Ec5d628176A1E7.0x()"
+    assert repr(call_tree) == "0x70997970C51812dc3A010C7d01b50e0d17dc79C8.0x()"
 
 
 def test_request_timeout(connected_provider, config):
