@@ -60,7 +60,8 @@ def contract_a(owner, connected_provider):
     base_path = BASE_CONTRACTS_PATH / "local"
 
     def get_contract_type(suffix: str) -> ContractType:
-        return ContractType.parse_file(base_path / f"contract_{suffix}.json")
+        json_path = base_path / f"contract_{suffix}.json"
+        return ContractType.model_validate_json(json_path.read_text())
 
     contract_c = owner.deploy(ContractContainer(get_contract_type("c")))
     contract_b = owner.deploy(ContractContainer(get_contract_type("b")), contract_c.address)
