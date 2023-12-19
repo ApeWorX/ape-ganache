@@ -18,6 +18,7 @@ extras_require = {
         "mypy>=1.7.1,<2",  # Static type analyzer
         "types-setuptools",  # Needed for mypy type shed
         "types-requests",  # Needed for mypy type shed
+        "types-PyYAML",  # Needed for mypy type shed
         "flake8>=6.1.0,<7",  # Style linter
         "flake8-breakpoint>=1.1.0,<2",  # Detect breakpoints left in code
         "flake8-print>=5.0.0,<6",  # Detect print statements left in code
